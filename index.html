@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>作業記録システム</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -12,83 +11,104 @@
 
   <!-- ==================== LOGIN ==================== -->
   <div id="screen-login" class="screen active">
-    <div class="login-wrap">
-      <div class="login-logo">
-        <div class="login-icon">📋</div>
-        <h1>作業記録システム</h1>
-        <p>生産性記入用紙　デジタル版</p>
-      </div>
-      <div class="login-form">
-        <div class="form-group">
-          <label for="worker-name">お名前</label>
-          <input type="text" id="worker-name" placeholder="例：田中 太郎"
-                 autocomplete="off" autocorrect="off" autocapitalize="off">
+    <div class="login-page">
+
+      <div class="login-top">
+        <div class="login-logo">
+          <span class="login-icon">📋</span>
+          <h1>作業記録システム</h1>
         </div>
-        <div class="form-row">
+
+        <div class="code-panel">
+          <div class="code-panel-label">社員コード</div>
+          <div class="code-digits" id="code-display">－－－－</div>
+          <div class="code-name" id="code-name"></div>
+        </div>
+
+        <div class="dt-row">
           <div class="form-group">
-            <label for="work-date">日付</label>
+            <label>日付</label>
             <input type="date" id="work-date">
           </div>
           <div class="form-group">
-            <label for="start-time">開始時刻</label>
+            <label>開始</label>
             <input type="time" id="start-time">
           </div>
+          <div class="form-group">
+            <label>終了</label>
+            <input type="time" id="end-time">
+          </div>
         </div>
-        <button class="btn-primary btn-xl" id="btn-start-shift">勤務開始</button>
+
+        <button class="btn-primary btn-xl" id="btn-start-shift">記録を開始する</button>
       </div>
-      <button class="btn-ghost" id="btn-show-history">📊 過去の記録を見る</button>
+
+      <div class="login-bottom">
+        <div class="numpad">
+          <button class="np-btn" data-n="1">1</button>
+          <button class="np-btn" data-n="2">2</button>
+          <button class="np-btn" data-n="3">3</button>
+          <button class="np-btn" data-n="4">4</button>
+          <button class="np-btn" data-n="5">5</button>
+          <button class="np-btn" data-n="6">6</button>
+          <button class="np-btn" data-n="7">7</button>
+          <button class="np-btn" data-n="8">8</button>
+          <button class="np-btn" data-n="9">9</button>
+          <button class="np-btn np-del" id="np-del">⌫</button>
+          <button class="np-btn" data-n="0">0</button>
+          <button class="np-btn np-clr" id="np-clr">C</button>
+        </div>
+
+        <div class="login-links">
+          <button class="btn-ghost" id="btn-show-history">📊 過去の記録</button>
+          <button class="btn-ghost-sm" id="btn-goto-admin">⚙ 管理者</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- ==================== MAIN ==================== -->
+  <!-- ==================== MAIN (タイムライン一括入力) ==================== -->
   <div id="screen-main" class="screen">
     <div class="main-header">
       <div class="header-left">
         <span id="h-name" class="h-name"></span>
+        <span id="h-code" class="h-code"></span>
         <span id="h-date" class="h-date"></span>
       </div>
       <span id="h-clock" class="h-clock"></span>
     </div>
 
-    <div class="current-task-panel" id="current-task-panel">
-      <div class="ct-label">現在の作業</div>
-      <div class="ct-name" id="ct-name">-- 未選択 --</div>
-      <div class="ct-elapsed" id="ct-elapsed"></div>
+    <div class="tl-toolbar">
+      <span class="tl-progress" id="tl-progress"></span>
+      <div class="toolbar-right">
+        <button class="btn-bulk" id="btn-bulk">📝 一括入力</button>
+        <button class="btn-clr-all" id="btn-clr-all" title="全クリア">🗑</button>
+      </div>
     </div>
 
-    <div class="section-title">作業を選択してください（タップで切り替え）</div>
+    <div class="paint-banner" id="paint-banner" style="display:none">
+      <span class="paint-icon" id="paint-icon">■</span>
+      <span class="paint-text" id="paint-text"></span>
+      <button class="btn-paint-done" id="btn-paint-done">完了</button>
+    </div>
 
-    <div class="category-grid" id="category-grid"></div>
+    <div class="tl-scroll" id="tl-scroll"></div>
 
     <div class="main-footer">
-      <button class="btn-outline" id="btn-timeline">⏱ タイムライン</button>
-      <button class="btn-end" id="btn-end-shift">退　勤</button>
-    </div>
-  </div>
-
-  <!-- ==================== TIMELINE ==================== -->
-  <div id="screen-timeline" class="screen">
-    <div class="sub-header">
-      <button class="btn-back" id="btn-back-main">← 戻る</button>
-      <h2>タイムライン</h2>
-      <span id="tl-total" class="tl-total"></span>
-    </div>
-    <div class="tl-hint">各スロットをタップして修正できます</div>
-    <div class="timeline-list" id="timeline-list"></div>
-    <div class="sub-footer">
-      <button class="btn-end" id="btn-end-from-tl">退　勤</button>
+      <button class="btn-end" id="btn-finish">集計する →</button>
     </div>
   </div>
 
   <!-- ==================== SUMMARY ==================== -->
   <div id="screen-summary" class="screen">
-    <div class="sub-header" style="justify-content:center">
-      <h2>お疲れ様でした！</h2>
+    <div class="sub-header">
+      <button class="btn-back" id="btn-back-to-main">← 修正</button>
+      <h2>作業集計</h2>
     </div>
     <div class="summary-scroll" id="summary-scroll"></div>
-    <div class="sub-footer" style="gap:12px">
-      <button class="btn-outline" id="btn-to-history">📊 履歴を見る</button>
-      <button class="btn-primary btn-xl" id="btn-new-shift">新しい勤務を開始</button>
+    <div class="sub-footer">
+      <button class="btn-primary btn-xl" id="btn-save-finish">保存して完了</button>
     </div>
   </div>
 
@@ -97,12 +117,36 @@
     <div class="sub-header">
       <button class="btn-back" id="btn-back-from-history">← 戻る</button>
       <h2>勤務履歴</h2>
-      <button class="btn-outline-sm" id="btn-export">⬇ CSV出力</button>
+      <button class="btn-outline-sm" id="btn-export">⬇ CSV</button>
     </div>
     <div class="history-list" id="history-list"></div>
   </div>
 
-  <!-- ==================== MODAL: CATEGORY PICKER ==================== -->
+  <!-- ==================== ADMIN ==================== -->
+  <div id="screen-admin" class="screen">
+    <div class="sub-header">
+      <button class="btn-back" id="btn-back-admin">← 戻る</button>
+      <h2>社員管理</h2>
+    </div>
+    <div class="admin-body">
+      <div class="admin-card">
+        <h3>社員を登録する</h3>
+        <div class="form-group">
+          <label>社員コード（数字）</label>
+          <input type="text" id="admin-code" placeholder="例：1001" inputmode="numeric">
+        </div>
+        <div class="form-group">
+          <label>氏名</label>
+          <input type="text" id="admin-name" placeholder="例：田中 太郎">
+        </div>
+        <button class="btn-primary" id="btn-add-emp">登録する</button>
+      </div>
+      <div class="admin-list-title">登録済み社員</div>
+      <div id="employee-list" class="employee-list"></div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: Category Picker ==================== -->
   <div id="modal-cat" class="modal" style="display:none">
     <div class="modal-backdrop" id="modal-backdrop"></div>
     <div class="modal-sheet">
