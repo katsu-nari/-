@@ -23,64 +23,60 @@ const CATEGORIES = [
   { id: '16',  num: '16',  label: '休憩',                 color: '#6b7280' },
   { id: '17',  num: '17',  label: 'その他',               color: '#78716c' },
 ];
+const CAT = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
-const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
-
-let sessions = [];
-let session  = null;
-let clockTid = null;
+let employees = {};
+let sessions  = [];
+let session   = null;
+let clockTid  = null;
+let currentCode = '';
+let paintCat    = null;
 let pendingSlot = null;
 
 function persist() {
   try {
-    localStorage.setItem('lr_sessions', JSON.stringify(sessions));
-    if (session) {
-      localStorage.setItem('lr_current', JSON.stringify(session));
-    } else {
-      localStorage.removeItem('lr_current');
-    }
+    localStorage.setItem('lr_employees', JSON.stringify(employees));
+    localStorage.setItem('lr_sessions',  JSON.stringify(sessions));
+    if (session) localStorage.setItem('lr_current', JSON.stringify(session));
+    else         localStorage.removeItem('lr_current');
   } catch (_) {}
 }
 
 function hydrate() {
-  try { const s = localStorage.getItem('lr_sessions'); if (s) sessions = JSON.parse(s); } catch (_) { sessions = []; }
-  try { const c = localStorage.getItem('lr_current');  if (c) session  = JSON.parse(c); } catch (_) { session = null; }
+  try { employees = JSON.parse(localStorage.getItem('lr_employees') || '{}'); } catch { employees = {}; }
+  try { sessions  = JSON.parse(localStorage.getItem('lr_sessions')  || '[]'); } catch { sessions  = []; }
+  try { const c = localStorage.getItem('lr_current'); if (c) session = JSON.parse(c); } catch { session = null; }
 }
 
 const pad = n => String(n).padStart(2, '0');
-
 function hhmm(ts) { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function hhmmss() { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
-
 function fmtDur(ms) {
   if (ms < 0) ms = 0;
-  const tot = Math.round(ms / 60000);
-  const h = Math.floor(tot / 60), m = tot % 60;
-  if (h === 0) return `${m}分`;
-  if (m === 0) return `${h}時間`;
-  return `${h}時間${m}分`;
+  const t = Math.round(ms / 60000), h = Math.floor(t / 60), m = t % 60;
+  if (h === 0) return `${m}分`; if (m === 0) return `${h}時間`; return `${h}時間${m}分`;
 }
-
-function fmtDate(dateStr) {
-  const [y, mo, d] = dateStr.split('-').map(Number);
-  const dow = ['日','月','火','水','木','金','土'][new Date(y, mo-1, d).getDay()];
-  return `${mo}月${d}日（${dow}）`;
+function fmtDate(s) {
+  const [y, mo, d] = s.split('-').map(Number);
+  return `${mo}月${d}日（${'日月火水木金土'[new Date(y,mo-1,d).getDay()]}）`;
 }
-
 function floorTo15(ts) { return ts - (ts % (15 * 60000)); }
+function parseDateTime(dateStr, timeStr) {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, m]     = timeStr.split(':').map(Number);
+  return new Date(y, mo-1, d, h, m, 0, 0).getTime();
+}
 
 function buildSlots(sess) {
-  const endTs = sess.endTs || Date.now();
   const startSlot = floorTo15(sess.startTs);
-  let endSlot = floorTo15(endTs);
-  if (endTs % (15 * 60000) > 0) endSlot += 15 * 60000;
+  let endSlot = floorTo15(sess.endTs);
+  if (sess.endTs % (15 * 60000) > 0) endSlot += 15 * 60000;
   const slots = [];
   for (let t = startSlot; t < endSlot; t += 15 * 60000) {
     const mid = t + 7.5 * 60000;
     let catId = null;
     for (const e of sess.entries) {
-      const es = e.startTs, ee = e.endTs || Date.now();
-      if (es <= mid && mid < ee) { catId = e.categoryId; break; }
+      if (e.startTs <= mid && mid < e.endTs) { catId = e.categoryId; break; }
     }
     slots.push({ slotStart: t, slotEnd: t + 15 * 60000, categoryId: catId });
   }
@@ -89,72 +85,19 @@ function buildSlots(sess) {
 
 function summarise(slots) {
   const map = {};
-  for (const s of slots) {
-    if (!s.categoryId) continue;
-    map[s.categoryId] = (map[s.categoryId] || 0) + 15;
-  }
+  for (const s of slots) { if (!s.categoryId) continue; map[s.categoryId] = (map[s.categoryId] || 0) + 15; }
   return map;
 }
 
-function startShift(name, dateStr, timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
-  const [y, mo, d] = dateStr.split('-').map(Number);
-  const startTs = new Date(y, mo-1, d, h, m, 0, 0).getTime();
-  session = { id: String(Date.now()), workerName: name, date: dateStr, startTs, endTs: null, entries: [] };
-  persist();
-}
-
-function tapCategory(catId) {
+function assignSlot(slotStart, slotEnd, catId) {
   if (!session) return;
-  const now = Date.now();
-  if (session.entries.length > 0) {
-    const last = session.entries[session.entries.length - 1];
-    if (last.categoryId === catId) return;
-    if (!last.endTs) last.endTs = now;
-  }
-  session.entries.push({ categoryId: catId, startTs: now, endTs: null });
-  persist();
-  refreshCurrentTask();
-  refreshCategoryGrid();
-  showToast(`${CAT_BY_ID[catId].label.replace('\n', ' ')} を開始`);
-}
-
-function finishShift() {
-  if (!session) return;
-  const now = Date.now();
-  session.endTs = now;
-  if (session.entries.length > 0) {
-    const last = session.entries[session.entries.length - 1];
-    if (!last.endTs) last.endTs = now;
-  }
-  sessions.push(session);
-  session = null;
-  persist();
-}
-
-function applySlotEdit(catId) {
-  if (!session || !pendingSlot) return;
-  const { slotStart, slotEnd } = pendingSlot;
-  rebuildWithSlot(slotStart, slotEnd, catId || null);
-  persist();
-  closeModal();
-  renderTimeline();
-  refreshCategoryGrid();
-  refreshCurrentTask();
-}
-
-function rebuildWithSlot(slotStart, slotEnd, newCatId) {
-  const now = Date.now();
   const rebuilt = [];
   for (const e of session.entries) {
-    const es = e.startTs, ee = e.endTs ?? now;
-    if (ee <= slotStart || es >= slotEnd) { rebuilt.push({ ...e }); continue; }
-    if (es < slotStart) rebuilt.push({ ...e, endTs: slotStart });
-    if (ee > slotEnd)   rebuilt.push({ ...e, startTs: slotEnd });
+    if (e.endTs <= slotStart || e.startTs >= slotEnd) { rebuilt.push({...e}); continue; }
+    if (e.startTs < slotStart) rebuilt.push({...e, endTs: slotStart});
+    if (e.endTs   > slotEnd)   rebuilt.push({...e, startTs: slotEnd});
   }
-  if (newCatId) {
-    rebuilt.push({ categoryId: newCatId, startTs: slotStart, endTs: slotEnd > now - 5000 ? null : slotEnd });
-  }
+  if (catId) rebuilt.push({ categoryId: catId, startTs: slotStart, endTs: slotEnd });
   rebuilt.sort((a, b) => a.startTs - b.startTs);
   const merged = [];
   for (const e of rebuilt) {
@@ -162,105 +105,137 @@ function rebuildWithSlot(slotStart, slotEnd, newCatId) {
       const prev = merged[merged.length - 1];
       if (prev.categoryId === e.categoryId && prev.endTs === e.startTs) { prev.endTs = e.endTs; continue; }
     }
-    merged.push({ ...e });
+    merged.push({...e});
   }
   session.entries = merged;
+  persist();
 }
+
+function startShift(code, name, dateStr, startTimeStr, endTimeStr) {
+  session = {
+    id: String(Date.now()), employeeCode: code, workerName: name, date: dateStr,
+    startTs: parseDateTime(dateStr, startTimeStr),
+    endTs:   parseDateTime(dateStr, endTimeStr),
+    entries: [],
+  };
+  persist();
+}
+
+function saveShift() {
+  if (!session) return;
+  sessions.push(session); session = null; persist();
+}
+
+function updateCodeDisplay() {
+  const display = document.getElementById('code-display');
+  const nameEl  = document.getElementById('code-name');
+  if (currentCode === '') {
+    display.textContent = '－－－－'; nameEl.textContent = ''; nameEl.className = 'code-name'; return;
+  }
+  display.textContent = currentCode;
+  const name = employees[currentCode];
+  if (name) { nameEl.textContent = '✅ ' + name; nameEl.className = 'code-name'; }
+  else       { nameEl.textContent = '未登録のコードです'; nameEl.className = 'code-name unregistered'; }
+}
+
+function numpadPress(digit) { if (currentCode.length < 8) { currentCode += digit; updateCodeDisplay(); } }
+function numpadDelete()     { currentCode = currentCode.slice(0, -1); updateCodeDisplay(); }
+function numpadClear()      { currentCode = ''; updateCodeDisplay(); }
+
+function startClock() {
+  if (clockTid) clearInterval(clockTid);
+  const el = document.getElementById('h-clock');
+  function tick() { el.textContent = hhmmss(); }
+  tick(); clockTid = setInterval(tick, 1000);
+}
+function stopClock() { if (clockTid) { clearInterval(clockTid); clockTid = null; } }
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-function refreshCategoryGrid() {
-  const grid = document.getElementById('category-grid');
-  const activeCatId = session && session.entries.length > 0
-    ? session.entries[session.entries.length - 1].categoryId : null;
-  grid.innerHTML = CATEGORIES.map(cat => {
-    const isActive = cat.id === activeCatId;
-    const label = cat.label.replace('\n', '<br>');
-    const numBg = cat.color + '22';
-    return `<button class="cat-btn${isActive ? ' cat-active' : ''}" data-cat="${cat.id}"
-      style="border-left-color:${cat.color};--cat-color:${cat.color};${isActive ? `background:${cat.color}12;` : ''}">
-      <span class="cat-num" style="background:${numBg};color:${cat.color}">${cat.num}</span>
-      <span class="cat-label" style="${isActive ? `color:${cat.color}` : ''}">${label}</span>
-    </button>`;
-  }).join('');
-  grid.querySelectorAll('.cat-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      btn.classList.add('flashing');
-      btn.addEventListener('animationend', () => btn.classList.remove('flashing'), { once: true });
-      tapCategory(btn.dataset.cat);
-    });
-  });
-}
-
-function refreshCurrentTask() {
-  const nameEl = document.getElementById('ct-name');
-  const elapsedEl = document.getElementById('ct-elapsed');
-  if (!session || session.entries.length === 0) {
-    nameEl.textContent = '-- 未選択 --'; nameEl.style.color = '#fff'; elapsedEl.textContent = ''; return;
-  }
-  const last = session.entries[session.entries.length - 1];
-  const cat = CAT_BY_ID[last.categoryId];
-  if (cat) { nameEl.textContent = cat.label.replace('\n', ' '); nameEl.style.color = cat.color; }
-}
-
-function tickClock() {
-  document.getElementById('h-clock').textContent = hhmmss();
-  const elapsedEl = document.getElementById('ct-elapsed');
-  if (session && session.entries.length > 0) {
-    const last = session.entries[session.entries.length - 1];
-    if (!last.endTs) elapsedEl.textContent = fmtDur(Date.now() - last.startTs);
-  }
-}
-
-function startClock() { if (clockTid) clearInterval(clockTid); tickClock(); clockTid = setInterval(tickClock, 1000); }
-function stopClock()  { if (clockTid) { clearInterval(clockTid); clockTid = null; } }
-
 function refreshHeader() {
   if (!session) return;
   document.getElementById('h-name').textContent = session.workerName;
-  document.getElementById('h-date').textContent = fmtDate(session.date);
+  document.getElementById('h-code').textContent = session.employeeCode;
+  document.getElementById('h-date').textContent = fmtDate(session.date) + '　' + hhmm(session.startTs) + '〜' + hhmm(session.endTs);
 }
 
 function renderTimeline() {
   if (!session) return;
   const slots = buildSlots(session);
-  document.getElementById('tl-total').textContent = `${slots.length * 15}分 / ${slots.length}スロット`;
-  const list = document.getElementById('timeline-list');
-  list.innerHTML = slots.map((sl, i) => {
-    const cat = sl.categoryId ? CAT_BY_ID[sl.categoryId] : null;
+  const filled = slots.filter(s => s.categoryId).length;
+  const total  = slots.length;
+  document.getElementById('tl-progress').textContent =
+    `${filled} / ${total} スロット入力済（${total > 0 ? Math.round(filled/total*100) : 0}%）`;
+
+  const scroll = document.getElementById('tl-scroll');
+  scroll.innerHTML = slots.map((sl, i) => {
+    const cat     = sl.categoryId ? CAT[sl.categoryId] : null;
     const timeStr = `${hhmm(sl.slotStart)} 〜 ${hhmm(sl.slotEnd)}`;
     const catHtml = cat
-      ? `<span class="tl-cat" style="color:${cat.color}">${cat.label.replace('\n', ' ')}</span>`
+      ? `<span class="tl-cat" style="color:${cat.color}">${cat.label.replace('\n',' ')}</span>`
       : `<span class="tl-cat tl-empty">（未記録）</span>`;
     return `<div class="tl-slot" data-slot="${i}" style="border-left-color:${cat ? cat.color : 'var(--border)'}">
-      <span class="tl-time">${timeStr}</span>${catHtml}<span class="tl-pencil">✏</span>
+      <span class="tl-time">${timeStr}</span>${catHtml}
+      <span class="tl-edit">${paintCat ? '▶' : '✏'}</span>
     </div>`;
   }).join('');
-  list.querySelectorAll('.tl-slot').forEach(el => {
+
+  scroll.querySelectorAll('.tl-slot').forEach(el => {
     el.addEventListener('click', () => {
       const sl = slots[parseInt(el.dataset.slot)];
-      pendingSlot = { slotStart: sl.slotStart, slotEnd: sl.slotEnd };
-      openModal('スロットの作業を変更', true);
+      if (paintCat) {
+        assignSlot(sl.slotStart, sl.slotEnd, sl.categoryId === paintCat ? null : paintCat);
+        renderTimeline();
+      } else {
+        pendingSlot = { slotStart: sl.slotStart, slotEnd: sl.slotEnd };
+        openCatModal('作業を選択', true);
+      }
     });
   });
 }
 
-function openModal(title, showClear = false) {
+function enterPaintMode(catId) {
+  paintCat = catId;
+  const cat = CAT[catId];
+  document.getElementById('paint-banner').style.display = 'flex';
+  document.getElementById('paint-icon').textContent = '■';
+  document.getElementById('paint-icon').style.color = cat.color;
+  document.getElementById('paint-text').textContent  = cat.label.replace('\n',' ') + ' を塗り中　タップして適用';
+  renderTimeline();
+  showToast('塗りモード: ' + cat.label.replace('\n',' '));
+}
+
+function exitPaintMode() {
+  paintCat = null;
+  document.getElementById('paint-banner').style.display = 'none';
+  renderTimeline();
+}
+
+function openCatModal(title, showClear = false) {
   document.getElementById('modal-title').textContent = title;
   const grid = document.getElementById('modal-grid');
   grid.innerHTML = CATEGORIES.map(cat => {
     const numBg = cat.color + '22';
-    const label = cat.label.replace('\n', '<br>');
     return `<button class="modal-cat-btn" data-cat="${cat.id}" style="border-color:${cat.color}">
       <span class="modal-cat-num" style="background:${numBg};color:${cat.color}">${cat.num}</span>
-      <span class="modal-cat-label" style="color:${cat.color}">${label}</span>
+      <span class="modal-cat-label" style="color:${cat.color}">${cat.label.replace('\n','<br>')}</span>
     </button>`;
   }).join('') + (showClear ? `<button class="modal-clear-btn" data-cat="">✕ クリア（未記録）</button>` : '');
+
   grid.querySelectorAll('[data-cat]').forEach(btn => {
-    btn.addEventListener('click', () => applySlotEdit(btn.dataset.cat));
+    btn.addEventListener('click', () => {
+      const catId = btn.dataset.cat || null;
+      closeModal();
+      if (pendingSlot) {
+        assignSlot(pendingSlot.slotStart, pendingSlot.slotEnd, catId);
+        pendingSlot = null; renderTimeline();
+      } else {
+        if (catId) enterPaintMode(catId);
+      }
+    });
   });
   document.getElementById('modal-cat').style.display = 'flex';
 }
@@ -268,31 +243,33 @@ function openModal(title, showClear = false) {
 function closeModal() { document.getElementById('modal-cat').style.display = 'none'; pendingSlot = null; }
 
 function renderSummary(sess) {
-  const slots = buildSlots(sess);
+  const slots   = buildSlots(sess);
   const summary = summarise(slots);
-  const entries = Object.entries(summary)
-    .map(([id, mins]) => ({ id, mins, cat: CAT_BY_ID[id] }))
+  const entries = Object.entries(summary).map(([id, mins]) => ({ id, mins, cat: CAT[id] }))
     .filter(e => e.cat).sort((a, b) => b.mins - a.mins);
-  const totalMs = sess.endTs - sess.startTs;
+  const totalMs   = sess.endTs - sess.startTs;
   const totalMins = slots.length * 15;
-  const maxMins = entries.length > 0 ? entries[0].mins : 1;
+  const maxMins   = entries.length > 0 ? entries[0].mins : 1;
+  const uncovered = slots.filter(s => !s.categoryId).length * 15;
+
   const rows = entries.map(e => {
     const pct = Math.round(e.mins / totalMins * 100);
-    const barPct = Math.round(e.mins / maxMins * 100);
     return `<tr>
-      <td class="td-cat" style="color:${e.cat.color}">${e.cat.label.replace('\n', ' ')}</td>
-      <td class="td-bar"><div class="bar-wrap"><div class="bar-fill" style="width:${barPct}%;background:${e.cat.color}"></div></div></td>
-      <td class="td-dur">${e.mins}分</td>
-      <td class="td-pct">${pct}%</td>
+      <td class="td-cat" style="color:${e.cat.color}">${e.cat.label.replace('\n',' ')}</td>
+      <td class="td-bar"><div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(e.mins/maxMins*100)}%;background:${e.cat.color}"></div></div></td>
+      <td class="td-dur">${e.mins}分</td><td class="td-pct">${pct}%</td>
     </tr>`;
-  }).join('');
+  }).join('') + (uncovered > 0
+    ? `<tr><td class="td-cat" style="color:var(--muted)">（未記録）</td><td class="td-bar"></td><td class="td-dur" style="color:var(--muted)">${uncovered}分</td><td class="td-pct"></td></tr>`
+    : '');
+
   document.getElementById('summary-scroll').innerHTML = `
     <div class="summary-card">
       <div class="info-grid">
-        <div class="info-cell"><div class="ic-label">お名前</div><div class="ic-value" style="font-size:17px">${sess.workerName}</div></div>
-        <div class="info-cell"><div class="ic-label">日付</div><div class="ic-value" style="font-size:15px">${fmtDate(sess.date)}</div></div>
-        <div class="info-cell"><div class="ic-label">勤務時間帯</div><div class="ic-value" style="font-size:17px">${hhmm(sess.startTs)} 〜 ${hhmm(sess.endTs)}</div></div>
-        <div class="info-cell"><div class="ic-label">実勤務時間</div><div class="ic-value">${fmtDur(totalMs)}</div></div>
+        <div class="info-cell"><div class="ic-label">社員コード</div><div class="ic-value" style="font-size:22px">${sess.employeeCode}</div></div>
+        <div class="info-cell"><div class="ic-label">氏名</div><div class="ic-value" style="font-size:16px">${sess.workerName}</div></div>
+        <div class="info-cell"><div class="ic-label">日付</div><div class="ic-value" style="font-size:14px">${fmtDate(sess.date)}</div></div>
+        <div class="info-cell"><div class="ic-label">勤務時間</div><div class="ic-value" style="font-size:15px">${hhmm(sess.startTs)}〜${hhmm(sess.endTs)}</div></div>
       </div>
     </div>
     <div class="summary-card">
@@ -309,32 +286,48 @@ function renderHistory() {
   if (sessions.length === 0) { list.innerHTML = '<div class="empty-state">📭 記録がまだありません</div>'; return; }
   list.innerHTML = [...sessions].reverse().map(sess => {
     const slots = buildSlots(sess);
-    const summary = summarise(slots);
-    const chips = Object.entries(summary).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([id,mins]) => {
-      const cat = CAT_BY_ID[id];
+    const chips = Object.entries(summarise(slots)).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([id,mins]) => {
+      const cat = CAT[id];
       return cat ? `<span class="hist-chip" style="background:${cat.color}">${cat.label.replace('\n',' ')} ${mins}分</span>` : '';
     }).join('');
     return `<div class="hist-item">
-      <div class="hist-top"><span class="hist-name">${sess.workerName}</span><span class="hist-date">${fmtDate(sess.date)}</span></div>
+      <div class="hist-top"><span class="hist-name">${sess.workerName}</span><span class="hist-meta">${sess.employeeCode} ／ ${fmtDate(sess.date)}</span></div>
       <div class="hist-range">${hhmm(sess.startTs)} 〜 ${hhmm(sess.endTs)}（${fmtDur(sess.endTs - sess.startTs)}）</div>
       <div class="hist-chips">${chips}</div>
     </div>`;
   }).join('');
 }
 
+function renderEmployeeList() {
+  const list = document.getElementById('employee-list');
+  const keys = Object.keys(employees).sort();
+  if (keys.length === 0) { list.innerHTML = '<div style="color:var(--muted);font-size:14px;padding:8px 4px">登録された社員がいません</div>'; return; }
+  list.innerHTML = keys.map(code => `
+    <div class="emp-row">
+      <span class="emp-code">${code}</span>
+      <span class="emp-name">${employees[code]}</span>
+      <button class="btn-del-emp" data-code="${code}">✕</button>
+    </div>`).join('');
+  list.querySelectorAll('.btn-del-emp').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm(`${btn.dataset.code} を削除しますか？`)) return;
+      delete employees[btn.dataset.code]; persist(); renderEmployeeList();
+    });
+  });
+}
+
 function exportCSV() {
   if (sessions.length === 0) { alert('記録がありません'); return; }
-  const rows = [['日付','お名前','開始時刻','終了時刻','作業内容','時間（分）']];
+  const rows = [['日付','社員コード','氏名','開始','終了','作業内容','時間（分）']];
   for (const sess of sessions) {
-    const summary = summarise(buildSlots(sess));
-    for (const [id, mins] of Object.entries(summary)) {
-      const cat = CAT_BY_ID[id];
-      rows.push([sess.date, sess.workerName, hhmm(sess.startTs), hhmm(sess.endTs), cat ? cat.label.replace('\n',' ') : id, mins]);
+    for (const [id, mins] of Object.entries(summarise(buildSlots(sess)))) {
+      const cat = CAT[id];
+      rows.push([sess.date, sess.employeeCode, sess.workerName, hhmm(sess.startTs), hhmm(sess.endTs), cat ? cat.label.replace('\n',' ') : id, mins]);
     }
   }
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
+  const url  = URL.createObjectURL(blob);
   Object.assign(document.createElement('a'), { href: url, download: `作業記録_${new Date().toISOString().slice(0,10)}.csv` }).click();
   URL.revokeObjectURL(url);
 }
@@ -344,38 +337,55 @@ function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.style.display = 'block'; el.style.animation = 'toastIn .25s ease';
   if (toastTid) clearTimeout(toastTid);
-  toastTid = setTimeout(() => {
-    el.style.animation = 'toastOut .3s ease forwards';
-    setTimeout(() => { el.style.display = 'none'; }, 300);
-  }, 1800);
+  toastTid = setTimeout(() => { el.style.animation = 'toastOut .3s ease forwards'; setTimeout(() => { el.style.display = 'none'; }, 300); }, 1800);
 }
 
 function setupEvents() {
+  document.querySelectorAll('.np-btn[data-n]').forEach(btn => btn.addEventListener('click', () => numpadPress(btn.dataset.n)));
+  document.getElementById('np-del').addEventListener('click', numpadDelete);
+  document.getElementById('np-clr').addEventListener('click', numpadClear);
+
   document.getElementById('btn-start-shift').addEventListener('click', () => {
-    const name = document.getElementById('worker-name').value.trim();
-    const date = document.getElementById('work-date').value;
-    const time = document.getElementById('start-time').value;
-    if (!name) { alert('お名前を入力してください'); return; }
-    if (!date || !time) { alert('日付と開始時刻を入力してください'); return; }
-    startShift(name, date, time);
-    refreshHeader(); refreshCategoryGrid(); refreshCurrentTask(); startClock();
-    showScreen('screen-main');
+    const code  = currentCode.trim();
+    const date  = document.getElementById('work-date').value;
+    const start = document.getElementById('start-time').value;
+    const end   = document.getElementById('end-time').value;
+    if (!code)               { showToast('社員コードを入力してください'); return; }
+    if (!date||!start||!end) { showToast('日付・開始・終了時刻を入力してください'); return; }
+    if (parseDateTime(date,end) <= parseDateTime(date,start)) { showToast('終了は開始より後の時刻にしてください'); return; }
+    startShift(code, employees[code] || code + ' さん', date, start, end);
+    refreshHeader(); renderTimeline(); startClock(); showScreen('screen-main');
+    currentCode = ''; updateCodeDisplay();
   });
+
   document.getElementById('btn-show-history').addEventListener('click', () => { renderHistory(); showScreen('screen-history'); });
-  document.getElementById('btn-timeline').addEventListener('click', () => { renderTimeline(); showScreen('screen-timeline'); });
-  document.getElementById('btn-end-shift').addEventListener('click', () => {
-    if (!confirm('退勤しますか？')) return;
-    stopClock(); finishShift(); renderSummary(sessions[sessions.length - 1]); showScreen('screen-summary');
+  document.getElementById('btn-goto-admin').addEventListener('click', () => { renderEmployeeList(); showScreen('screen-admin'); });
+
+  document.getElementById('btn-bulk').addEventListener('click', () => { exitPaintMode(); openCatModal('一括入力：作業を選んでください', false); });
+  document.getElementById('btn-clr-all').addEventListener('click', () => {
+    if (!confirm('全スロットをクリアしますか？')) return;
+    session.entries = []; persist(); renderTimeline();
   });
-  document.getElementById('btn-back-main').addEventListener('click', () => showScreen('screen-main'));
-  document.getElementById('btn-end-from-tl').addEventListener('click', () => {
-    if (!confirm('退勤しますか？')) return;
-    stopClock(); finishShift(); renderSummary(sessions[sessions.length - 1]); showScreen('screen-summary');
-  });
-  document.getElementById('btn-new-shift').addEventListener('click', () => showScreen('screen-login'));
-  document.getElementById('btn-to-history').addEventListener('click', () => { renderHistory(); showScreen('screen-history'); });
+  document.getElementById('btn-paint-done').addEventListener('click', exitPaintMode);
+  document.getElementById('btn-finish').addEventListener('click', () => { if (!session) return; renderSummary(session); showScreen('screen-summary'); });
+
+  document.getElementById('btn-back-to-main').addEventListener('click', () => { renderTimeline(); showScreen('screen-main'); });
+  document.getElementById('btn-save-finish').addEventListener('click', () => { saveShift(); stopClock(); showScreen('screen-login'); showToast('記録を保存しました'); });
+
   document.getElementById('btn-back-from-history').addEventListener('click', () => showScreen(session ? 'screen-main' : 'screen-login'));
   document.getElementById('btn-export').addEventListener('click', exportCSV);
+
+  document.getElementById('btn-back-admin').addEventListener('click', () => showScreen('screen-login'));
+  document.getElementById('btn-add-emp').addEventListener('click', () => {
+    const code = document.getElementById('admin-code').value.trim();
+    const name = document.getElementById('admin-name').value.trim();
+    if (!code || !name) { showToast('コードと氏名を入力してください'); return; }
+    employees[code] = name; persist();
+    document.getElementById('admin-code').value = '';
+    document.getElementById('admin-name').value = '';
+    renderEmployeeList(); showToast(`${code}：${name} を登録しました`);
+  });
+
   document.getElementById('modal-close').addEventListener('click', closeModal);
   document.getElementById('modal-backdrop').addEventListener('click', closeModal);
 }
@@ -383,11 +393,13 @@ function setupEvents() {
 function init() {
   hydrate();
   const now = new Date();
-  const roundedMin = Math.floor(now.getMinutes() / 15) * 15;
-  document.getElementById('work-date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-  document.getElementById('start-time').value = `${pad(now.getHours())}:${pad(roundedMin)}`;
-  setupEvents();
-  if (session) { refreshHeader(); refreshCategoryGrid(); refreshCurrentTask(); startClock(); showScreen('screen-main'); }
+  const rMin = Math.floor(now.getMinutes() / 15) * 15;
+  const today = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  document.getElementById('work-date').value  = today;
+  document.getElementById('start-time').value = `${pad(now.getHours())}:${pad(rMin)}`;
+  document.getElementById('end-time').value   = `${pad(now.getHours())}:${pad(rMin)}`;
+  setupEvents(); updateCodeDisplay();
+  if (session) { refreshHeader(); renderTimeline(); startClock(); showScreen('screen-main'); }
   else { showScreen('screen-login'); }
 }
 
