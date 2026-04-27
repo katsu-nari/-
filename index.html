@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>作業記録システム</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==================== LOGIN ==================== -->
+  <div id="screen-login" class="screen active">
+    <div class="login-wrap">
+      <div class="login-logo">
+        <div class="login-icon">📋</div>
+        <h1>作業記録システム</h1>
+        <p>生産性記入用紙　デジタル版</p>
+      </div>
+      <div class="login-form">
+        <div class="form-group">
+          <label for="worker-name">お名前</label>
+          <input type="text" id="worker-name" placeholder="例：田中 太郎"
+                 autocomplete="off" autocorrect="off" autocapitalize="off">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="work-date">日付</label>
+            <input type="date" id="work-date">
+          </div>
+          <div class="form-group">
+            <label for="start-time">開始時刻</label>
+            <input type="time" id="start-time">
+          </div>
+        </div>
+        <button class="btn-primary btn-xl" id="btn-start-shift">勤務開始</button>
+      </div>
+      <button class="btn-ghost" id="btn-show-history">📊 過去の記録を見る</button>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN ==================== -->
+  <div id="screen-main" class="screen">
+    <div class="main-header">
+      <div class="header-left">
+        <span id="h-name" class="h-name"></span>
+        <span id="h-date" class="h-date"></span>
+      </div>
+      <span id="h-clock" class="h-clock"></span>
+    </div>
+
+    <div class="current-task-panel" id="current-task-panel">
+      <div class="ct-label">現在の作業</div>
+      <div class="ct-name" id="ct-name">-- 未選択 --</div>
+      <div class="ct-elapsed" id="ct-elapsed"></div>
+    </div>
+
+    <div class="section-title">作業を選択してください（タップで切り替え）</div>
+
+    <div class="category-grid" id="category-grid"></div>
+
+    <div class="main-footer">
+      <button class="btn-outline" id="btn-timeline">⏱ タイムライン</button>
+      <button class="btn-end" id="btn-end-shift">退　勤</button>
+    </div>
+  </div>
+
+  <!-- ==================== TIMELINE ==================== -->
+  <div id="screen-timeline" class="screen">
+    <div class="sub-header">
+      <button class="btn-back" id="btn-back-main">← 戻る</button>
+      <h2>タイムライン</h2>
+      <span id="tl-total" class="tl-total"></span>
+    </div>
+    <div class="tl-hint">各スロットをタップして修正できます</div>
+    <div class="timeline-list" id="timeline-list"></div>
+    <div class="sub-footer">
+      <button class="btn-end" id="btn-end-from-tl">退　勤</button>
+    </div>
+  </div>
+
+  <!-- ==================== SUMMARY ==================== -->
+  <div id="screen-summary" class="screen">
+    <div class="sub-header" style="justify-content:center">
+      <h2>お疲れ様でした！</h2>
+    </div>
+    <div class="summary-scroll" id="summary-scroll"></div>
+    <div class="sub-footer" style="gap:12px">
+      <button class="btn-outline" id="btn-to-history">📊 履歴を見る</button>
+      <button class="btn-primary btn-xl" id="btn-new-shift">新しい勤務を開始</button>
+    </div>
+  </div>
+
+  <!-- ==================== HISTORY ==================== -->
+  <div id="screen-history" class="screen">
+    <div class="sub-header">
+      <button class="btn-back" id="btn-back-from-history">← 戻る</button>
+      <h2>勤務履歴</h2>
+      <button class="btn-outline-sm" id="btn-export">⬇ CSV出力</button>
+    </div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+
+  <!-- ==================== MODAL: CATEGORY PICKER ==================== -->
+  <div id="modal-cat" class="modal" style="display:none">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 id="modal-title">作業を選択</h3>
+        <button class="btn-close" id="modal-close">✕</button>
+      </div>
+      <div class="modal-grid" id="modal-grid"></div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST ==================== -->
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
