@@ -386,13 +386,28 @@ html, body {
    HISTORY
    ================================================================ */
 .history-list { flex: 1; overflow-y: auto; padding: 10px; -webkit-overflow-scrolling: touch; }
-.hist-item { background: var(--card); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-.hist-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.hist-name { font-size: 17px; font-weight: 700; }
-.hist-meta { font-size: 13px; color: var(--muted); }
-.hist-range { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+
+.hist-date-group { margin-bottom: 14px; }
+.hist-date-header {
+  font-size: 13px; font-weight: 700; color: var(--primary);
+  background: #eff6ff; border: 1px solid #bfdbfe;
+  border-radius: 8px; padding: 6px 12px; margin-bottom: 6px;
+}
+
+.hist-item { background: var(--card); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.hist-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px; }
+.hist-name { font-size: 16px; font-weight: 700; }
+.hist-code { font-size: 12px; color: var(--muted); margin-left: 6px; }
+.hist-range { font-size: 13px; color: var(--muted); margin-bottom: 7px; }
 .hist-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .hist-chip { padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; }
+.btn-hist-edit {
+  height: 32px; padding: 0 12px; flex-shrink: 0;
+  background: var(--bg); color: var(--primary);
+  border: 1.5px solid var(--primary); border-radius: 8px;
+  font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.btn-hist-edit:active { background: #dbeafe; }
 .empty-state { text-align: center; padding: 60px 24px; color: var(--muted); font-size: 16px; }
 
 /* ================================================================

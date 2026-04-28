@@ -31,10 +31,11 @@ const CAT = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 /* ============================================================
    STATE
    ============================================================ */
-let employees = {};   // code(string) -> name(string)
-let sessions  = [];   // completed sessions
-let session   = null; // current in-progress session
-let clockTid  = null;
+let employees        = {};   // code(string) -> name(string)
+let sessions         = [];   // completed sessions
+let session          = null; // current in-progress session
+let clockTid         = null;
+let editingSessionId = null; // 履歴編集中のセッションID
 
 // Login numpad
 let currentCode = '';
@@ -177,9 +178,28 @@ function startShift(code, name, dateStr, startTimeStr, endTimeStr, breakMins) {
 
 function saveShift() {
   if (!session) return;
-  sessions.push(session);
+  if (editingSessionId) {
+    const idx = sessions.findIndex(s => s.id === editingSessionId);
+    if (idx >= 0) sessions[idx] = session;
+    else sessions.push(session);
+    editingSessionId = null;
+  } else {
+    sessions.push(session);
+  }
   session = null;
   persist();
+}
+
+function editHistory(id) {
+  const idx = sessions.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  editingSessionId = id;
+  session = JSON.parse(JSON.stringify(sessions[idx])); // 元データは残す
+  persist();
+  refreshHeader();
+  renderTimeline();
+  startClock();
+  showScreen('screen-main');
 }
 
 /* ============================================================
@@ -406,20 +426,37 @@ function renderHistory() {
     list.innerHTML = '<div class="empty-state">📭 記録がまだありません</div>';
     return;
   }
-  list.innerHTML = [...sessions].reverse().map(sess => {
-    const slots   = buildSlots(sess);
-    const summary = summarise(slots);
-    const chips   = Object.entries(summary).sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id, mins]) => {
-      const cat = CAT[id];
-      return cat ? `<span class="hist-chip" style="background:${cat.color}">${cat.label.replace('\n',' ')} ${mins}分</span>` : '';
+
+  // 日付ごとにグループ化
+  const byDate = {};
+  for (const sess of sessions) {
+    if (!byDate[sess.date]) byDate[sess.date] = [];
+    byDate[sess.date].push(sess);
+  }
+  const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+  list.innerHTML = sortedDates.map(date => {
+    const items = byDate[date].map(sess => {
+      const chips = Object.entries(summarise(buildSlots(sess)))
+        .sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id, mins]) => {
+          const cat = CAT[id];
+          return cat ? `<span class="hist-chip" style="background:${cat.color}">${cat.label.replace('\n',' ')} ${mins}分</span>` : '';
+        }).join('');
+      return `<div class="hist-item">
+        <div class="hist-top">
+          <div>
+            <span class="hist-name">${sess.workerName}</span>
+            <span class="hist-code">${sess.employeeCode}</span>
+          </div>
+          <button class="btn-hist-edit" onclick="editHistory('${sess.id}')">✏ 修正</button>
+        </div>
+        <div class="hist-range">${hhmm(sess.startTs)} 〜 ${hhmm(sess.endTs)}（${fmtDur(sess.endTs - sess.startTs)}）</div>
+        <div class="hist-chips">${chips}</div>
+      </div>`;
     }).join('');
-    return `<div class="hist-item">
-      <div class="hist-top">
-        <span class="hist-name">${sess.workerName}</span>
-        <span class="hist-meta">${sess.employeeCode} ／ ${fmtDate(sess.date)}</span>
-      </div>
-      <div class="hist-range">${hhmm(sess.startTs)} 〜 ${hhmm(sess.endTs)}（${fmtDur(sess.endTs - sess.startTs)}）</div>
-      <div class="hist-chips">${chips}</div>
+    return `<div class="hist-date-group">
+      <div class="hist-date-header">${fmtDate(date)}</div>
+      ${items}
     </div>`;
   }).join('');
 }
@@ -545,11 +582,21 @@ function setupEvents() {
 
   // ── Main / Timeline ──
   document.getElementById('btn-back-to-login').addEventListener('click', () => {
-    if (!confirm('作業入力を中断してログイン画面に戻りますか？\n（入力途中の内容は破棄されます）')) return;
+    const wasEditing = editingSessionId !== null;
+    const msg = wasEditing
+      ? '修正を中断して履歴画面に戻りますか？（変更は破棄されます）'
+      : '作業入力を中断してログイン画面に戻りますか？（入力内容は破棄されます）';
+    if (!confirm(msg)) return;
     session = null;
+    editingSessionId = null;
     persist();
     stopClock();
-    showScreen('screen-login');
+    if (wasEditing) {
+      renderHistory();
+      showScreen('screen-history');
+    } else {
+      showScreen('screen-login');
+    }
   });
 
   document.getElementById('btn-clr-all').addEventListener('click', () => {
@@ -578,10 +625,16 @@ function setupEvents() {
   });
 
   document.getElementById('btn-save-finish').addEventListener('click', () => {
+    const wasEditing = editingSessionId !== null;
     saveShift();
     stopClock();
-    showScreen('screen-login');
     showToast('記録を保存しました');
+    if (wasEditing) {
+      renderHistory();
+      showScreen('screen-history');
+    } else {
+      showScreen('screen-login');
+    }
   });
 
   // ── History ──
