@@ -171,6 +171,17 @@ html, body {
 .btn-primary:active { background: var(--primary-dk); transform: scale(.97); }
 .btn-xl { height: 60px; font-size: 19px; }
 
+.btn-start {
+  height: 52px;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #fff; border: none; border-radius: 10px;
+  font-size: 17px; font-weight: 700; font-family: inherit;
+  cursor: pointer; letter-spacing: .04em;
+  box-shadow: 0 4px 14px rgba(21,128,61,.5);
+  transition: filter .15s, transform .1s;
+}
+.btn-start:active { filter: brightness(.9); transform: scale(.97); }
+
 .btn-outline {
   height: 52px; background: #fff; color: var(--primary);
   border: 2px solid var(--primary); border-radius: 10px;

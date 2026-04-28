@@ -271,12 +271,12 @@ function renderTimeline() {
   document.getElementById('progress-fill').style.width  = pct + '%';
 
   let hint;
-  if (assignedMins === 0)  hint = '最初の時刻をタップして作業を入力してください';
-  else if (remaining > 0)  hint = `あと ${remaining}分 入力してください`;
-  else                     hint = '✅ 入力完了！「集計する」を押してください';
+  if (assignedMins === 0)  hint = '作業が始まった時刻をタップして作業内容を選んでください';
+  else if (remaining > 0)  hint = '作業が変わった時刻をタップ → 完了したら「集計する」';
+  else                     hint = '✅ 全入力済み！「集計する」を押してください';
   document.getElementById('progress-hint').textContent = hint;
 
-  document.getElementById('btn-finish').disabled = remaining > 0;
+  document.getElementById('btn-finish').disabled = assignedMins === 0;
 
   const scroll = document.getElementById('tl-scroll');
   scroll.innerHTML = slots.map((sl, i) => {
@@ -321,16 +321,27 @@ function openCatModal(title, showClear = false) {
   grid.querySelectorAll('[data-cat]').forEach(btn => {
     btn.addEventListener('click', () => {
       const catId = btn.dataset.cat || null;
-      const slot  = pendingSlot;   // closeModal が pendingSlot を null にする前に保存
+      const slot  = pendingSlot;
       closeModal();
-      if (slot) {
-        if (catId) {
-          assignSlot(slot.slotStart, session.endTs, catId);
-        } else {
-          assignSlot(slot.slotStart, slot.slotEnd, null);
+      if (!slot) return;
+
+      if (catId) {
+        // 前の作業の末尾 → この時刻の手前まで、前の作業で埋める（遡及入力）
+        const allSlots = buildSlots(session);
+        const idx      = allSlots.findIndex(s => s.slotStart === slot.slotStart);
+        let prevEnd = null, prevCat = null;
+        for (let j = idx - 1; j >= 0; j--) {
+          if (allSlots[j].categoryId) { prevEnd = allSlots[j].slotEnd; prevCat = allSlots[j].categoryId; break; }
         }
-        renderTimeline();
+        if (prevEnd !== null && prevEnd < slot.slotStart) {
+          assignSlot(prevEnd, slot.slotStart, prevCat);
+        }
+        // この時刻のスロットだけに新しい作業を入れる（末尾は次のタップで確定）
+        assignSlot(slot.slotStart, slot.slotEnd, catId);
+      } else {
+        assignSlot(slot.slotStart, slot.slotEnd, null);
       }
+      renderTimeline();
     });
   });
 
@@ -542,6 +553,12 @@ function setupEvents() {
 
   document.getElementById('btn-finish').addEventListener('click', () => {
     if (!session) return;
+    // 最後に入力されたスロットから勤務終了まで、その作業で自動補完
+    const slots      = buildSlots(session);
+    const lastFilled = [...slots].reverse().find(s => s.categoryId);
+    if (lastFilled && lastFilled.slotEnd < session.endTs) {
+      assignSlot(lastFilled.slotEnd, session.endTs, lastFilled.categoryId);
+    }
     renderSummary(session);
     showScreen('screen-summary');
   });
