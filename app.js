@@ -286,20 +286,20 @@ function renderTimeline() {
       ? `<span class="tl-cat" style="color:${cat.color}">${cat.label.replace('\n', ' ')}</span>`
       : `<span class="tl-cat tl-empty">（未記録）</span>`;
     const border  = cat ? cat.color : 'var(--border)';
-    return `<button class="tl-slot" data-slot="${i}" style="border-left-color:${border}">
+    return `<button class="tl-slot" onclick="tapSlot(${i})" style="border-left-color:${border}">
       <span class="tl-time">${timeStr}</span>
       ${catHtml}
       <span class="tl-edit">✏</span>
     </button>`;
   }).join('');
+}
 
-  scroll.querySelectorAll('.tl-slot').forEach(el => {
-    el.addEventListener('click', () => {
-      const sl = slots[parseInt(el.dataset.slot)];
-      pendingSlot = { slotStart: sl.slotStart, slotEnd: sl.slotEnd };
-      openCatModal('作業を選択', sl.categoryId !== null);
-    });
-  });
+function tapSlot(i) {
+  if (!session) return;
+  const slots = buildSlots(session);
+  const sl    = slots[i];
+  pendingSlot = { slotStart: sl.slotStart, slotEnd: sl.slotEnd };
+  openCatModal('作業を選択', sl.categoryId !== null);
 }
 
 /* ============================================================
@@ -527,6 +527,14 @@ function setupEvents() {
   });
 
   // ── Main / Timeline ──
+  document.getElementById('btn-back-to-login').addEventListener('click', () => {
+    if (!confirm('作業入力を中断してログイン画面に戻りますか？\n（入力途中の内容は破棄されます）')) return;
+    session = null;
+    persist();
+    stopClock();
+    showScreen('screen-login');
+  });
+
   document.getElementById('btn-clr-all').addEventListener('click', () => {
     if (!confirm('全スロットをクリアしますか？')) return;
     session.entries = [];
