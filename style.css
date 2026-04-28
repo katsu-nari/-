@@ -387,12 +387,19 @@ html, body {
    ================================================================ */
 .history-list { flex: 1; overflow-y: auto; padding: 10px; -webkit-overflow-scrolling: touch; }
 
-.hist-date-group { margin-bottom: 14px; }
-.hist-date-header {
-  font-size: 13px; font-weight: 700; color: var(--primary);
-  background: #eff6ff; border: 1px solid #bfdbfe;
-  border-radius: 8px; padding: 6px 12px; margin-bottom: 6px;
+/* 日付一覧行 */
+.hist-date-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 16px 16px;
+  background: var(--card); border: none; border-radius: var(--radius);
+  margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  font-family: inherit; cursor: pointer; text-align: left;
+  -webkit-appearance: none;
 }
+.hist-date-row:active { background: #f1f5f9; }
+.hist-date-row-label { font-size: 17px; font-weight: 700; flex: 1; color: var(--text); }
+.hist-date-row-count { font-size: 13px; color: var(--muted); }
+.hist-date-row-arrow { font-size: 22px; color: var(--muted); line-height: 1; }
 
 .hist-item { background: var(--card); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .hist-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px; }

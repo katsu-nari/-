@@ -36,6 +36,7 @@ let sessions         = [];   // completed sessions
 let session          = null; // current in-progress session
 let clockTid         = null;
 let editingSessionId = null; // 履歴編集中のセッションID
+let historyViewDate  = null; // null=日付一覧, 文字列=その日の詳細
 
 // Login numpad
 let currentCode = '';
@@ -194,13 +195,14 @@ function editHistory(id) {
   const idx = sessions.findIndex(s => s.id === id);
   if (idx < 0) return;
   editingSessionId = id;
-  session = JSON.parse(JSON.stringify(sessions[idx])); // 元データは残す
+  session = JSON.parse(JSON.stringify(sessions[idx]));
   persist();
   refreshHeader();
   renderTimeline();
   startClock();
   showScreen('screen-main');
 }
+
 
 /* ============================================================
    NUMPAD
@@ -420,43 +422,72 @@ function renderSummary(sess) {
 /* ============================================================
    RENDER: HISTORY
    ============================================================ */
-function renderHistory() {
-  const list = document.getElementById('history-list');
-  if (sessions.length === 0) {
-    list.innerHTML = '<div class="empty-state">📭 記録がまだありません</div>';
-    return;
-  }
-
-  // 日付ごとにグループ化
+function histByDate() {
   const byDate = {};
   for (const sess of sessions) {
     if (!byDate[sess.date]) byDate[sess.date] = [];
     byDate[sess.date].push(sess);
   }
-  const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+  return byDate;
+}
 
+function renderHistory() {
+  if (historyViewDate) {
+    renderHistoryDay(historyViewDate);
+  } else {
+    renderHistoryList();
+  }
+}
+
+function renderHistoryList() {
+  document.querySelector('#screen-history h2').textContent = '勤務履歴';
+  const list = document.getElementById('history-list');
+  if (sessions.length === 0) {
+    list.innerHTML = '<div class="empty-state">📭 記録がまだありません</div>';
+    return;
+  }
+  const byDate      = histByDate();
+  const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
   list.innerHTML = sortedDates.map(date => {
-    const items = byDate[date].map(sess => {
-      const chips = Object.entries(summarise(buildSlots(sess)))
-        .sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id, mins]) => {
-          const cat = CAT[id];
-          return cat ? `<span class="hist-chip" style="background:${cat.color}">${cat.label.replace('\n',' ')} ${mins}分</span>` : '';
-        }).join('');
-      return `<div class="hist-item">
-        <div class="hist-top">
-          <div>
-            <span class="hist-name">${sess.workerName}</span>
-            <span class="hist-code">${sess.employeeCode}</span>
-          </div>
-          <button class="btn-hist-edit" onclick="editHistory('${sess.id}')">✏ 修正</button>
+    const count = byDate[date].length;
+    return `<button class="hist-date-row" onclick="showHistoryDate('${date}')">
+      <span class="hist-date-row-label">${fmtDate(date)}</span>
+      <span class="hist-date-row-count">${count}件</span>
+      <span class="hist-date-row-arrow">›</span>
+    </button>`;
+  }).join('');
+}
+
+function showHistoryDate(date) {
+  historyViewDate = date;
+  renderHistoryDay(date);
+}
+
+function renderHistoryDay(date) {
+  document.querySelector('#screen-history h2').textContent = fmtDate(date);
+  const list    = document.getElementById('history-list');
+  const byDate  = histByDate();
+  const daySess = byDate[date] || [];
+  if (daySess.length === 0) {
+    list.innerHTML = '<div class="empty-state">記録がありません</div>';
+    return;
+  }
+  list.innerHTML = daySess.map(sess => {
+    const chips = Object.entries(summarise(buildSlots(sess)))
+      .sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id, mins]) => {
+        const cat = CAT[id];
+        return cat ? `<span class="hist-chip" style="background:${cat.color}">${cat.label.replace('\n',' ')} ${mins}分</span>` : '';
+      }).join('');
+    return `<div class="hist-item">
+      <div class="hist-top">
+        <div>
+          <span class="hist-name">${sess.workerName}</span>
+          <span class="hist-code">${sess.employeeCode}</span>
         </div>
-        <div class="hist-range">${hhmm(sess.startTs)} 〜 ${hhmm(sess.endTs)}（${fmtDur(sess.endTs - sess.startTs)}）</div>
-        <div class="hist-chips">${chips}</div>
-      </div>`;
-    }).join('');
-    return `<div class="hist-date-group">
-      <div class="hist-date-header">${fmtDate(date)}</div>
-      ${items}
+        <button class="btn-hist-edit" onclick="editHistory('${sess.id}')">✏ 修正</button>
+      </div>
+      <div class="hist-range">${hhmm(sess.startTs)} 〜 ${hhmm(sess.endTs)}（${fmtDur(sess.endTs - sess.startTs)}）</div>
+      <div class="hist-chips">${chips}</div>
     </div>`;
   }).join('');
 }
@@ -583,6 +614,7 @@ function setupEvents() {
   // ── Main / Timeline ──
   document.getElementById('btn-back-to-login').addEventListener('click', () => {
     const wasEditing = editingSessionId !== null;
+    const savedDate  = wasEditing ? session.date : null;
     const msg = wasEditing
       ? '修正を中断して履歴画面に戻りますか？（変更は破棄されます）'
       : '作業入力を中断してログイン画面に戻りますか？（入力内容は破棄されます）';
@@ -592,7 +624,8 @@ function setupEvents() {
     persist();
     stopClock();
     if (wasEditing) {
-      renderHistory();
+      historyViewDate = savedDate;
+      renderHistoryDay(savedDate);
       showScreen('screen-history');
     } else {
       showScreen('screen-login');
@@ -626,11 +659,13 @@ function setupEvents() {
 
   document.getElementById('btn-save-finish').addEventListener('click', () => {
     const wasEditing = editingSessionId !== null;
+    const savedDate  = wasEditing ? session.date : null;
     saveShift();
     stopClock();
     showToast('記録を保存しました');
     if (wasEditing) {
-      renderHistory();
+      historyViewDate = savedDate;
+      renderHistoryDay(savedDate);
       showScreen('screen-history');
     } else {
       showScreen('screen-login');
@@ -639,7 +674,12 @@ function setupEvents() {
 
   // ── History ──
   document.getElementById('btn-back-from-history').addEventListener('click', () => {
-    showScreen(session ? 'screen-main' : 'screen-login');
+    if (historyViewDate) {
+      historyViewDate = null;
+      renderHistoryList();
+    } else {
+      showScreen(session ? 'screen-main' : 'screen-login');
+    }
   });
   document.getElementById('btn-export').addEventListener('click', exportCSV);
 
