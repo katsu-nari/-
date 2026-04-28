@@ -286,11 +286,11 @@ function renderTimeline() {
       ? `<span class="tl-cat" style="color:${cat.color}">${cat.label.replace('\n', ' ')}</span>`
       : `<span class="tl-cat tl-empty">（未記録）</span>`;
     const border  = cat ? cat.color : 'var(--border)';
-    return `<div class="tl-slot" data-slot="${i}" style="border-left-color:${border}">
+    return `<button class="tl-slot" data-slot="${i}" style="border-left-color:${border}">
       <span class="tl-time">${timeStr}</span>
       ${catHtml}
       <span class="tl-edit">✏</span>
-    </div>`;
+    </button>`;
   }).join('');
 
   scroll.querySelectorAll('.tl-slot').forEach(el => {

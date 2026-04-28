@@ -274,6 +274,9 @@ html, body {
   padding: 10px 12px; border-radius: 9px; margin-bottom: 5px;
   background: var(--card); cursor: pointer;
   border-left: 6px solid var(--border);
+  border-top: none; border-right: none; border-bottom: none;
+  width: 100%; text-align: left; font-family: inherit;
+  -webkit-appearance: none;
   transition: background .1s;
   min-height: 54px;
 }
