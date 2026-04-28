@@ -589,9 +589,10 @@ function init() {
   const now      = new Date();
   const rMin     = Math.floor(now.getMinutes() / 15) * 15;
   const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const endHour = (now.getHours() + 8) % 24;
   document.getElementById('work-date').value  = todayStr;
   document.getElementById('start-time').value = `${pad(now.getHours())}:${pad(rMin)}`;
-  document.getElementById('end-time').value   = `${pad(now.getHours())}:${pad(rMin)}`;
+  document.getElementById('end-time').value   = `${pad(endHour)}:${pad(rMin)}`;
 
   setupEvents();
   updateCodeDisplay();
