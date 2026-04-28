@@ -321,16 +321,14 @@ function openCatModal(title, showClear = false) {
   grid.querySelectorAll('[data-cat]').forEach(btn => {
     btn.addEventListener('click', () => {
       const catId = btn.dataset.cat || null;
+      const slot  = pendingSlot;   // closeModal が pendingSlot を null にする前に保存
       closeModal();
-      if (pendingSlot) {
+      if (slot) {
         if (catId) {
-          // Fill from this slot to end of shift
-          assignSlot(pendingSlot.slotStart, session.endTs, catId);
+          assignSlot(slot.slotStart, session.endTs, catId);
         } else {
-          // Clear just this one 15-min slot
-          assignSlot(pendingSlot.slotStart, pendingSlot.slotEnd, null);
+          assignSlot(slot.slotStart, slot.slotEnd, null);
         }
-        pendingSlot = null;
         renderTimeline();
       }
     });
@@ -597,10 +595,9 @@ function init() {
   const now      = new Date();
   const rMin     = Math.floor(now.getMinutes() / 15) * 15;
   const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-  const endHour = (now.getHours() + 8) % 24;
   document.getElementById('work-date').value  = todayStr;
   document.getElementById('start-time').value = `${pad(now.getHours())}:${pad(rMin)}`;
-  document.getElementById('end-time').value   = `${pad(endHour)}:${pad(rMin)}`;
+  document.getElementById('end-time').value   = '';
 
   setupEvents();
   updateCodeDisplay();
