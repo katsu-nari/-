@@ -312,40 +312,37 @@ function openCatModal(title, showClear = false) {
   grid.innerHTML = CATEGORIES.map(cat => {
     const numBg = cat.color + '22';
     const label = cat.label.replace('\n', '<br>');
-    return `<button class="modal-cat-btn" data-cat="${cat.id}" style="border-color:${cat.color}">
+    return `<button class="modal-cat-btn" onclick="pickCat('${cat.id}')" style="border-color:${cat.color}">
       <span class="modal-cat-num" style="background:${numBg};color:${cat.color}">${cat.num}</span>
       <span class="modal-cat-label" style="color:${cat.color}">${label}</span>
     </button>`;
-  }).join('') + (showClear ? `<button class="modal-clear-btn" data-cat="">✕ クリア（未記録）</button>` : '');
-
-  grid.querySelectorAll('[data-cat]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const catId = btn.dataset.cat || null;
-      const slot  = pendingSlot;
-      closeModal();
-      if (!slot) return;
-
-      if (catId) {
-        // 前の作業の末尾 → この時刻の手前まで、前の作業で埋める（遡及入力）
-        const allSlots = buildSlots(session);
-        const idx      = allSlots.findIndex(s => s.slotStart === slot.slotStart);
-        let prevEnd = null, prevCat = null;
-        for (let j = idx - 1; j >= 0; j--) {
-          if (allSlots[j].categoryId) { prevEnd = allSlots[j].slotEnd; prevCat = allSlots[j].categoryId; break; }
-        }
-        if (prevEnd !== null && prevEnd < slot.slotStart) {
-          assignSlot(prevEnd, slot.slotStart, prevCat);
-        }
-        // この時刻のスロットだけに新しい作業を入れる（末尾は次のタップで確定）
-        assignSlot(slot.slotStart, slot.slotEnd, catId);
-      } else {
-        assignSlot(slot.slotStart, slot.slotEnd, null);
-      }
-      renderTimeline();
-    });
-  });
+  }).join('') + (showClear ? `<button class="modal-clear-btn" onclick="pickCat('')">✕ クリア（未記録）</button>` : '');
 
   document.getElementById('modal-cat').style.display = 'flex';
+}
+
+function pickCat(catId) {
+  const slot = pendingSlot;
+  closeModal();
+  if (!slot || !session) return;
+
+  if (catId) {
+    // 前の区間を遡及して埋める
+    const allSlots = buildSlots(session);
+    const idx      = allSlots.findIndex(s => s.slotStart === slot.slotStart);
+    let prevEnd = null, prevCat = null;
+    for (let j = idx - 1; j >= 0; j--) {
+      if (allSlots[j].categoryId) { prevEnd = allSlots[j].slotEnd; prevCat = allSlots[j].categoryId; break; }
+    }
+    if (prevEnd !== null && prevEnd < slot.slotStart) {
+      assignSlot(prevEnd, slot.slotStart, prevCat);
+    }
+    // タップしたスロット1つだけに新作業をセット（末尾は次のタップで確定）
+    assignSlot(slot.slotStart, slot.slotEnd, catId);
+  } else {
+    assignSlot(slot.slotStart, slot.slotEnd, null);
+  }
+  renderTimeline();
 }
 
 function closeModal() {
@@ -499,6 +496,17 @@ function setupEvents() {
   });
   document.getElementById('np-del').addEventListener('click', numpadDelete);
   document.getElementById('np-clr').addEventListener('click', numpadClear);
+
+  // ── 時刻を15分単位にスナップ ──
+  function snapTo15(val) {
+    if (!val) return val;
+    const [h, m] = val.split(':').map(Number);
+    const snapped = Math.round(m / 15) * 15;
+    if (snapped === 60) return `${pad((h + 1) % 24)}:00`;
+    return `${pad(h)}:${pad(snapped)}`;
+  }
+  document.getElementById('start-time').addEventListener('change', function() { this.value = snapTo15(this.value); });
+  document.getElementById('end-time').addEventListener('change', function()   { this.value = snapTo15(this.value); });
 
   // ── Start shift ──
   document.getElementById('btn-start-shift').addEventListener('click', () => {
