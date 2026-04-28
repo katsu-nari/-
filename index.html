@@ -31,12 +31,24 @@
             <input type="date" id="work-date">
           </div>
           <div class="form-group">
-            <label>開始</label>
+            <label>開始時刻</label>
             <input type="time" id="start-time">
           </div>
           <div class="form-group">
-            <label>終了</label>
+            <label>終了時刻</label>
             <input type="time" id="end-time">
+          </div>
+          <div class="form-group">
+            <label>休憩時間</label>
+            <select id="break-mins" class="select-input">
+              <option value="0">なし</option>
+              <option value="30">30分</option>
+              <option value="45">45分</option>
+              <option value="60" selected>60分</option>
+              <option value="75">75分</option>
+              <option value="90">90分</option>
+              <option value="120">120分</option>
+            </select>
           </div>
         </div>
 
@@ -68,7 +80,7 @@
     </div>
   </div>
 
-  <!-- ==================== MAIN (タイムライン一括入力) ==================== -->
+  <!-- ==================== MAIN (タイムライン) ==================== -->
   <div id="screen-main" class="screen">
     <div class="main-header">
       <div class="header-left">
@@ -79,24 +91,27 @@
       <span id="h-clock" class="h-clock"></span>
     </div>
 
-    <div class="tl-toolbar">
-      <span class="tl-progress" id="tl-progress"></span>
-      <div class="toolbar-right">
-        <button class="btn-bulk" id="btn-bulk">📝 一括入力</button>
-        <button class="btn-clr-all" id="btn-clr-all" title="全クリア">🗑</button>
+    <!-- 進捗バー -->
+    <div class="progress-area">
+      <div class="progress-labels">
+        <span class="prog-left" id="prog-assigned">入力済み: 0分</span>
+        <span class="prog-right" id="prog-target">実労働時間: 0分</span>
       </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-hint" id="progress-hint">作業を入力してください</div>
     </div>
 
-    <div class="paint-banner" id="paint-banner" style="display:none">
-      <span class="paint-icon" id="paint-icon">■</span>
-      <span class="paint-text" id="paint-text"></span>
-      <button class="btn-paint-done" id="btn-paint-done">完了</button>
+    <div class="tl-help">
+      タップした時刻から次のタップまで同じ作業として記録されます
     </div>
 
     <div class="tl-scroll" id="tl-scroll"></div>
 
     <div class="main-footer">
-      <button class="btn-end" id="btn-finish">集計する →</button>
+      <button class="btn-clr-all-sm" id="btn-clr-all">🗑 全クリア</button>
+      <button class="btn-finish" id="btn-finish" disabled>集計する →</button>
     </div>
   </div>
 

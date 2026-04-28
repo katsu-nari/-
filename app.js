@@ -39,10 +39,7 @@ let clockTid  = null;
 // Login numpad
 let currentCode = '';
 
-// Paint mode: tap slots to fill with one category
-let paintCat = null;  // categoryId string or null
-
-// Pending single-slot edit (non-paint mode)
+// Pending slot being edited
 let pendingSlot = null; // { slotStart, slotEnd }
 
 /* ============================================================
@@ -164,14 +161,15 @@ function assignSlot(slotStart, slotEnd, catId) {
 /* ============================================================
    SHIFT MANAGEMENT
    ============================================================ */
-function startShift(code, name, dateStr, startTimeStr, endTimeStr) {
+function startShift(code, name, dateStr, startTimeStr, endTimeStr, breakMins) {
   session = {
     id: String(Date.now()),
     employeeCode: code,
     workerName: name,
     date: dateStr,
-    startTs: parseDateTime(dateStr, startTimeStr),
-    endTs:   parseDateTime(dateStr, endTimeStr),
+    startTs:   parseDateTime(dateStr, startTimeStr),
+    endTs:     parseDateTime(dateStr, endTimeStr),
+    breakMins: parseInt(breakMins, 10) || 0,
     entries: [],
   };
   persist();
@@ -261,64 +259,47 @@ function refreshHeader() {
    ============================================================ */
 function renderTimeline() {
   if (!session) return;
-  const slots     = buildSlots(session);
-  const filled    = slots.filter(s => s.categoryId).length;
-  const total     = slots.length;
-  const pct       = total > 0 ? Math.round(filled / total * 100) : 0;
-  const progressEl = document.getElementById('tl-progress');
-  progressEl.textContent = `${filled} / ${total} スロット入力済（${pct}%）`;
+  const slots        = buildSlots(session);
+  const assignedMins = slots.filter(s => s.categoryId).length * 15;
+  const shiftMins    = Math.round((session.endTs - session.startTs) / 60000);
+  const targetMins   = Math.max(0, shiftMins - (session.breakMins || 0));
+  const remaining    = targetMins - assignedMins;
+  const pct          = targetMins > 0 ? Math.min(100, Math.round(assignedMins / targetMins * 100)) : 0;
+
+  document.getElementById('prog-assigned').textContent  = `入力済み: ${assignedMins}分`;
+  document.getElementById('prog-target').textContent    = `実労働時間: ${targetMins}分`;
+  document.getElementById('progress-fill').style.width  = pct + '%';
+
+  let hint;
+  if (assignedMins === 0)  hint = '最初の時刻をタップして作業を入力してください';
+  else if (remaining > 0)  hint = `あと ${remaining}分 入力してください`;
+  else                     hint = '✅ 入力完了！「集計する」を押してください';
+  document.getElementById('progress-hint').textContent = hint;
+
+  document.getElementById('btn-finish').disabled = remaining > 0;
 
   const scroll = document.getElementById('tl-scroll');
   scroll.innerHTML = slots.map((sl, i) => {
-    const cat       = sl.categoryId ? CAT[sl.categoryId] : null;
-    const timeStr   = `${hhmm(sl.slotStart)} 〜 ${hhmm(sl.slotEnd)}`;
-    const catHtml   = cat
+    const cat     = sl.categoryId ? CAT[sl.categoryId] : null;
+    const timeStr = `${hhmm(sl.slotStart)} 〜 ${hhmm(sl.slotEnd)}`;
+    const catHtml = cat
       ? `<span class="tl-cat" style="color:${cat.color}">${cat.label.replace('\n', ' ')}</span>`
       : `<span class="tl-cat tl-empty">（未記録）</span>`;
-    const border    = cat ? cat.color : 'var(--border)';
-    return `<div class="tl-slot" data-slot="${i}"
-      style="border-left-color:${border}${paintCat ? '; cursor:pointer' : ''}">
+    const border  = cat ? cat.color : 'var(--border)';
+    return `<div class="tl-slot" data-slot="${i}" style="border-left-color:${border}">
       <span class="tl-time">${timeStr}</span>
       ${catHtml}
-      <span class="tl-edit">${paintCat ? '▶' : '✏'}</span>
+      <span class="tl-edit">✏</span>
     </div>`;
   }).join('');
 
   scroll.querySelectorAll('.tl-slot').forEach(el => {
     el.addEventListener('click', () => {
       const sl = slots[parseInt(el.dataset.slot)];
-      if (paintCat) {
-        // Paint mode: tap to assign/toggle
-        const already = sl.categoryId === paintCat;
-        assignSlot(sl.slotStart, sl.slotEnd, already ? null : paintCat);
-        renderTimeline();
-      } else {
-        // Single-slot edit
-        pendingSlot = { slotStart: sl.slotStart, slotEnd: sl.slotEnd };
-        openCatModal('作業を選択', true);
-      }
+      pendingSlot = { slotStart: sl.slotStart, slotEnd: sl.slotEnd };
+      openCatModal('作業を選択', sl.categoryId !== null);
     });
   });
-}
-
-/* ============================================================
-   PAINT MODE
-   ============================================================ */
-function enterPaintMode(catId) {
-  paintCat = catId;
-  const cat = CAT[catId];
-  document.getElementById('paint-banner').style.display = 'flex';
-  document.getElementById('paint-icon').textContent = '■';
-  document.getElementById('paint-icon').style.color = cat.color;
-  document.getElementById('paint-text').textContent  = cat.label.replace('\n', ' ') + ' を塗り中　タップして適用';
-  renderTimeline();
-  showToast('塗りモード: ' + cat.label.replace('\n', ' '));
-}
-
-function exitPaintMode() {
-  paintCat = null;
-  document.getElementById('paint-banner').style.display = 'none';
-  renderTimeline();
 }
 
 /* ============================================================
@@ -342,13 +323,15 @@ function openCatModal(title, showClear = false) {
       const catId = btn.dataset.cat || null;
       closeModal();
       if (pendingSlot) {
-        // Single-slot edit
-        assignSlot(pendingSlot.slotStart, pendingSlot.slotEnd, catId);
+        if (catId) {
+          // Fill from this slot to end of shift
+          assignSlot(pendingSlot.slotStart, session.endTs, catId);
+        } else {
+          // Clear just this one 15-min slot
+          assignSlot(pendingSlot.slotStart, pendingSlot.slotEnd, null);
+        }
         pendingSlot = null;
         renderTimeline();
-      } else {
-        // Bulk mode: enter paint
-        if (catId) enterPaintMode(catId);
       }
     });
   });
@@ -371,7 +354,6 @@ function renderSummary(sess) {
     .map(([id, mins]) => ({ id, mins, cat: CAT[id] }))
     .filter(e => e.cat).sort((a, b) => b.mins - a.mins);
 
-  const totalMs   = sess.endTs - sess.startTs;
   const totalMins = slots.length * 15;
   const maxMins   = entries.length > 0 ? entries[0].mins : 1;
   const uncovered = slots.filter(s => !s.categoryId).length * 15;
@@ -511,20 +493,21 @@ function setupEvents() {
 
   // ── Start shift ──
   document.getElementById('btn-start-shift').addEventListener('click', () => {
-    const code  = currentCode.trim();
-    const date  = document.getElementById('work-date').value;
-    const start = document.getElementById('start-time').value;
-    const end   = document.getElementById('end-time').value;
+    const code     = currentCode.trim();
+    const date     = document.getElementById('work-date').value;
+    const start    = document.getElementById('start-time').value;
+    const end      = document.getElementById('end-time').value;
+    const breakVal = document.getElementById('break-mins').value;
 
-    if (!code)          { showToast('社員コードを入力してください'); return; }
+    if (!code)                   { showToast('社員コードを入力してください'); return; }
     if (!date || !start || !end) { showToast('日付・開始・終了時刻を入力してください'); return; }
 
     const sTs = parseDateTime(date, start);
     const eTs = parseDateTime(date, end);
-    if (eTs <= sTs)     { showToast('終了は開始より後の時刻にしてください'); return; }
+    if (eTs <= sTs) { showToast('終了は開始より後の時刻にしてください'); return; }
 
     const name = employees[code] || code + ' さん';
-    startShift(code, name, date, start, end);
+    startShift(code, name, date, start, end, breakVal);
     refreshHeader();
     renderTimeline();
     startClock();
@@ -544,19 +527,12 @@ function setupEvents() {
   });
 
   // ── Main / Timeline ──
-  document.getElementById('btn-bulk').addEventListener('click', () => {
-    exitPaintMode();
-    openCatModal('一括入力：作業を選んでください', false);
-  });
-
   document.getElementById('btn-clr-all').addEventListener('click', () => {
     if (!confirm('全スロットをクリアしますか？')) return;
     session.entries = [];
     persist();
     renderTimeline();
   });
-
-  document.getElementById('btn-paint-done').addEventListener('click', exitPaintMode);
 
   document.getElementById('btn-finish').addEventListener('click', () => {
     if (!session) return;
@@ -610,9 +586,9 @@ function init() {
   hydrate();
 
   // Default date / time
-  const now        = new Date();
-  const rMin       = Math.floor(now.getMinutes() / 15) * 15;
-  const todayStr   = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const now      = new Date();
+  const rMin     = Math.floor(now.getMinutes() / 15) * 15;
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
   document.getElementById('work-date').value  = todayStr;
   document.getElementById('start-time').value = `${pad(now.getHours())}:${pad(rMin)}`;
   document.getElementById('end-time').value   = `${pad(now.getHours())}:${pad(rMin)}`;
