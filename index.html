@@ -32,11 +32,29 @@
           </div>
           <div class="form-group">
             <label>開始時刻</label>
-            <input type="time" id="start-time" step="900">
+            <div class="time-sel-row">
+              <select id="start-hour" class="time-sel"></select>
+              <span class="time-colon">:</span>
+              <select id="start-min" class="time-sel">
+                <option value="00">00</option>
+                <option value="15">15</option>
+                <option value="30">30</option>
+                <option value="45">45</option>
+              </select>
+            </div>
           </div>
           <div class="form-group">
             <label>終了時刻</label>
-            <input type="time" id="end-time" step="900">
+            <div class="time-sel-row">
+              <select id="end-hour" class="time-sel"></select>
+              <span class="time-colon">:</span>
+              <select id="end-min" class="time-sel">
+                <option value="00">00</option>
+                <option value="15">15</option>
+                <option value="30">30</option>
+                <option value="45">45</option>
+              </select>
+            </div>
           </div>
           <div class="form-group">
             <label>休憩時間</label>

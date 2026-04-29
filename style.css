@@ -120,6 +120,28 @@ html, body {
 .select-input:focus { border-color: #fff; background: rgba(255,255,255,.25); }
 .select-input option { background: #1e40af; color: #fff; }
 
+/* Time select row (hour : minute) */
+.time-sel-row { display: flex; align-items: center; gap: 4px; }
+.time-sel {
+  flex: 1;
+  height: 48px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-radius: 9px;
+  padding: 0 4px;
+  font-size: 15px;
+  font-family: inherit;
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  color-scheme: dark;
+  text-align: center;
+}
+.time-sel:focus { border-color: #fff; background: rgba(255,255,255,.25); }
+.time-sel option { background: #1e40af; color: #fff; }
+.time-colon { color: #fff; font-size: 18px; font-weight: 700; line-height: 1; }
+
 /* ── Numpad ── */
 .login-bottom { display: flex; flex-direction: column; gap: 14px; }
 

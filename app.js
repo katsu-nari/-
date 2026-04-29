@@ -601,27 +601,16 @@ function setupEvents() {
   document.getElementById('np-del').addEventListener('click', numpadDelete);
   document.getElementById('np-clr').addEventListener('click', numpadClear);
 
-  // ── 時刻を15分単位にスナップ ──
-  function snapTo15(val) {
-    if (!val) return val;
-    const [h, m] = val.split(':').map(Number);
-    const snapped = Math.round(m / 15) * 15;
-    if (snapped === 60) return `${pad((h + 1) % 24)}:00`;
-    return `${pad(h)}:${pad(snapped)}`;
-  }
-  document.getElementById('start-time').addEventListener('change', function() { this.value = snapTo15(this.value); });
-  document.getElementById('end-time').addEventListener('change', function()   { this.value = snapTo15(this.value); });
-
   // ── Start shift ──
   document.getElementById('btn-start-shift').addEventListener('click', () => {
     const code     = currentCode.trim();
     const date     = document.getElementById('work-date').value;
-    const start    = document.getElementById('start-time').value;
-    const end      = document.getElementById('end-time').value;
+    const start    = `${document.getElementById('start-hour').value}:${document.getElementById('start-min').value}`;
+    const end      = `${document.getElementById('end-hour').value}:${document.getElementById('end-min').value}`;
     const breakVal = document.getElementById('break-mins').value;
 
-    if (!code)                   { showToast('社員コードを入力してください'); return; }
-    if (!date || !start || !end) { showToast('日付・開始・終了時刻を入力してください'); return; }
+    if (!code)  { showToast('社員コードを入力してください'); return; }
+    if (!date)  { showToast('日付を入力してください'); return; }
 
     const sTs = parseDateTime(date, start);
     const eTs = parseDateTime(date, end);
@@ -783,13 +772,25 @@ function setupEvents() {
 function init() {
   hydrate();
 
-  // Default date / time
+  // 時セレクトに00〜23を追加
+  ['start-hour','end-hour'].forEach(id => {
+    const sel = document.getElementById(id);
+    for (let h = 0; h < 24; h++) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = pad(h);
+      sel.appendChild(opt);
+    }
+  });
+
+  // デフォルト日付・開始時刻
   const now      = new Date();
   const rMin     = Math.floor(now.getMinutes() / 15) * 15;
   const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-  document.getElementById('work-date').value  = todayStr;
-  document.getElementById('start-time').value = `${pad(now.getHours())}:${pad(rMin)}`;
-  document.getElementById('end-time').value   = '';
+  document.getElementById('work-date').value   = todayStr;
+  document.getElementById('start-hour').value  = pad(now.getHours());
+  document.getElementById('start-min').value   = pad(rMin);
+  document.getElementById('end-hour').value    = pad(now.getHours());
+  document.getElementById('end-min').value     = '00';
 
   setupEvents();
   updateCodeDisplay();
