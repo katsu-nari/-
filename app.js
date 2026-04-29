@@ -1,5 +1,7 @@
 'use strict';
 
+const VERSION = '1.6.0';
+
 /* ============================================================
    CATEGORIES
    ============================================================ */
@@ -820,6 +822,8 @@ function setupEvents() {
    ============================================================ */
 function init() {
   hydrate();
+
+  document.getElementById('app-version').textContent = `v${VERSION}`;
 
   // 時セレクトに00〜23を追加
   ['start-hour','end-hour'].forEach(id => {
