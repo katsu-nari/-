@@ -17,7 +17,6 @@
         <div class="login-logo">
           <span class="login-icon">📋</span>
           <h1>作業記録システム</h1>
-          <span class="app-version" id="app-version"></span>
         </div>
 
         <div class="code-panel">
@@ -94,6 +93,7 @@
           <button class="btn-ghost" id="btn-show-history">📊 過去の記録</button>
           <button class="btn-ghost-sm" id="btn-goto-admin">⚙ 管理者</button>
         </div>
+        <div class="app-version" id="app-version"></div>
       </div>
 
     </div>
@@ -175,7 +175,7 @@
           <label>確認（もう一度入力）</label>
           <input type="password" id="admin-pw-confirm" placeholder="確認" inputmode="numeric">
         </div>
-        <button class="btn-primary" id="btn-change-admin-pw">変更する</button>
+        <button class="btn-primary" onclick="changeAdminPw()">変更する</button>
       </div>
       <div class="admin-card">
         <h3>社員を登録する</h3>

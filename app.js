@@ -60,6 +60,16 @@ function openAdminPwModal() {
 function closeAdminPwModal() {
   document.getElementById('modal-admin-pw').style.display = 'none';
 }
+function changeAdminPw() {
+  const newPw = document.getElementById('admin-pw-new').value.trim();
+  const conf  = document.getElementById('admin-pw-confirm').value.trim();
+  if (!newPw)        { showToast('パスワードを入力してください'); return; }
+  if (newPw !== conf) { showToast('確認パスワードが一致しません'); return; }
+  localStorage.setItem(ADMIN_PW_KEY, newPw);
+  document.getElementById('admin-pw-new').value = '';
+  document.getElementById('admin-pw-confirm').value = '';
+  showToast('パスワードを変更しました');
+}
 
 /* ============================================================
    PERSISTENCE
@@ -667,18 +677,6 @@ function setupEvents() {
     }
   });
 
-  // ── Change admin password ──
-  document.getElementById('btn-change-admin-pw').addEventListener('click', () => {
-    const newPw  = document.getElementById('admin-pw-new').value.trim();
-    const conf   = document.getElementById('admin-pw-confirm').value.trim();
-    if (!newPw)        { showToast('パスワードを入力してください'); return; }
-    if (newPw !== conf) { showToast('確認パスワードが一致しません'); return; }
-    localStorage.setItem(ADMIN_PW_KEY, newPw);
-    document.getElementById('admin-pw-new').value = '';
-    document.getElementById('admin-pw-confirm').value = '';
-    showToast('パスワードを変更しました');
-  });
-
   // ── Main / Timeline ──
   document.getElementById('btn-back-to-login').addEventListener('click', () => {
     const wasEditing = editingSessionId !== null;
@@ -823,7 +821,8 @@ function setupEvents() {
 function init() {
   hydrate();
 
-  document.getElementById('app-version').textContent = `v${VERSION}`;
+  const vEl = document.getElementById('app-version');
+  if (vEl) vEl.textContent = `v${VERSION}`;
 
   // 時セレクトに00〜23を追加
   ['start-hour','end-hour'].forEach(id => {

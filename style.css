@@ -55,8 +55,8 @@ html, body {
   display: flex; align-items: center; gap: 10px; color: #fff;
 }
 .login-icon { font-size: 26px; }
-.login-logo h1 { font-size: 17px; font-weight: 700; flex: 1; }
-.app-version { font-size: 11px; color: rgba(255,255,255,.5); font-weight: 600; align-self: flex-end; }
+.login-logo h1 { font-size: 17px; font-weight: 700; }
+.app-version { font-size: 11px; color: rgba(255,255,255,.45); font-weight: 600; text-align: right; }
 
 /* Code display */
 .code-panel {
