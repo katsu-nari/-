@@ -41,57 +41,57 @@ html, body {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: 20px 16px 16px;
-  gap: 18px;
+  padding: 10px 14px;
+  gap: 8px;
   max-width: 520px;
   margin: 0 auto;
   width: 100%;
 }
 
 /* ── Top section ── */
-.login-top { display: flex; flex-direction: column; gap: 14px; }
+.login-top { display: flex; flex-direction: column; gap: 8px; }
 
 .login-logo {
-  display: flex; align-items: center; gap: 12px; color: #fff;
+  display: flex; align-items: center; gap: 10px; color: #fff;
 }
-.login-icon { font-size: 36px; }
-.login-logo h1 { font-size: 20px; font-weight: 700; }
+.login-icon { font-size: 26px; }
+.login-logo h1 { font-size: 17px; font-weight: 700; }
 
 /* Code display */
 .code-panel {
   background: rgba(255,255,255,.12);
   border: 2px solid rgba(255,255,255,.25);
   border-radius: var(--radius);
-  padding: 14px 18px;
+  padding: 8px 14px;
   color: #fff;
 }
-.code-panel-label { font-size: 12px; font-weight: 700; opacity: .7; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+.code-panel-label { font-size: 11px; font-weight: 700; opacity: .7; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
 .code-digits {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: .12em;
-  min-height: 44px;
+  min-height: 32px;
 }
 .code-name {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
-  margin-top: 6px;
-  min-height: 24px;
+  margin-top: 2px;
+  min-height: 18px;
   color: #86efac;
 }
 .code-name.unregistered { color: #fca5a5; }
 
 /* Date/time row – 2×2 grid */
-.dt-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.form-group { display: flex; flex-direction: column; gap: 5px; }
-.form-group label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.8); letter-spacing: .03em; }
+.dt-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.form-group { display: flex; flex-direction: column; gap: 3px; }
+.form-group label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,.8); letter-spacing: .03em; }
 .form-group input {
-  height: 48px;
+  height: 40px;
   border: 2px solid rgba(255,255,255,.3);
   border-radius: 9px;
-  padding: 0 12px;
-  font-size: 16px;
+  padding: 0 10px;
+  font-size: 15px;
   font-family: inherit;
   background: rgba(255,255,255,.15);
   color: #fff;
@@ -104,7 +104,7 @@ html, body {
 
 /* Break-time select */
 .select-input {
-  height: 48px;
+  height: 40px;
   border: 2px solid rgba(255,255,255,.3);
   border-radius: 9px;
   padding: 0 8px;
@@ -125,7 +125,7 @@ html, body {
 .time-sel {
   flex: 1;
   min-width: 0;
-  height: 48px;
+  height: 40px;
   border: 2px solid rgba(255,255,255,.3);
   border-radius: 9px;
   padding: 0 8px;
@@ -143,20 +143,20 @@ html, body {
 .time-colon { color: #fff; font-size: 20px; font-weight: 700; flex-shrink: 0; }
 
 /* ── Numpad ── */
-.login-bottom { display: flex; flex-direction: column; gap: 14px; }
+.login-bottom { display: flex; flex-direction: column; gap: 8px; }
 
 .numpad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 7px;
 }
 .np-btn {
-  height: 72px;
+  height: 56px;
   border: none;
   border-radius: 12px;
   background: rgba(255,255,255,.18);
   color: #fff;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
@@ -164,21 +164,21 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 .np-btn:active { background: rgba(255,255,255,.35); transform: scale(.94); }
-.np-del { font-size: 22px; background: rgba(255,255,255,.12); }
-.np-clr { font-size: 18px; font-weight: 800; background: rgba(220,38,38,.4); }
+.np-del { font-size: 18px; background: rgba(255,255,255,.12); }
+.np-clr { font-size: 15px; font-weight: 800; background: rgba(220,38,38,.4); }
 
-.login-links { display: flex; gap: 10px; }
+.login-links { display: flex; gap: 8px; }
 .btn-ghost {
-  flex: 1; height: 46px;
+  flex: 1; height: 40px;
   background: transparent; color: rgba(255,255,255,.8);
   border: 1px solid rgba(255,255,255,.3); border-radius: 10px;
-  font-size: 14px; font-family: inherit; cursor: pointer;
+  font-size: 13px; font-family: inherit; cursor: pointer;
 }
 .btn-ghost-sm {
-  height: 46px; padding: 0 16px;
+  height: 40px; padding: 0 14px;
   background: transparent; color: rgba(255,255,255,.6);
   border: 1px solid rgba(255,255,255,.2); border-radius: 10px;
-  font-size: 13px; font-family: inherit; cursor: pointer;
+  font-size: 12px; font-family: inherit; cursor: pointer;
 }
 
 /* ================================================================
@@ -191,7 +191,7 @@ html, body {
   transition: background .15s, transform .1s;
 }
 .btn-primary:active { background: var(--primary-dk); transform: scale(.97); }
-.btn-xl { height: 60px; font-size: 19px; }
+.btn-xl { height: 50px; font-size: 17px; }
 
 .btn-start {
   height: 52px;
