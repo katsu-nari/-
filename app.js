@@ -676,7 +676,7 @@ function setupEvents() {
     const enteredBreak  = summarise(buildSlots(session))['16'] || 0;
     const requiredBreak = session.breakMins || 0;
     if (enteredBreak !== requiredBreak) {
-      showToast(`休憩時間が一致しません（作業入力: ${enteredBreak}分 / 設定: ${requiredBreak}分）`);
+      showToast(`休憩が合いません\n設定: ${requiredBreak}分 / 入力: ${enteredBreak}分`);
       renderTimeline();
       return;
     }
