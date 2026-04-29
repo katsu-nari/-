@@ -60,6 +60,48 @@ function openAdminPwModal() {
 function closeAdminPwModal() {
   document.getElementById('modal-admin-pw').style.display = 'none';
 }
+function backToLogin() {
+  const wasEditing = editingSessionId !== null;
+  const savedDate  = wasEditing ? session.date : null;
+  const msg = wasEditing
+    ? '修正を中断して履歴画面に戻りますか？（変更は破棄されます）'
+    : '作業入力を中断してログイン画面に戻りますか？（入力内容は破棄されます）';
+  if (!confirm(msg)) return;
+  session = null;
+  editingSessionId = null;
+  persist();
+  stopClock();
+  if (wasEditing) {
+    historyViewDate = savedDate;
+    renderHistoryDay(savedDate);
+    showScreen('screen-history');
+  } else {
+    showScreen('screen-login');
+  }
+}
+function clearAllSlots() {
+  if (!confirm('全スロットをクリアしますか？')) return;
+  session.entries = [];
+  persist();
+  renderTimeline();
+}
+function finishShift() {
+  if (!session) return;
+  const slots      = buildSlots(session);
+  const lastFilled = [...slots].reverse().find(s => s.categoryId);
+  if (lastFilled && lastFilled.slotEnd < session.endTs) {
+    assignSlot(lastFilled.slotEnd, session.endTs, lastFilled.categoryId);
+  }
+  const enteredBreak  = summarise(buildSlots(session))['16'] || 0;
+  const requiredBreak = session.breakMins || 0;
+  if (enteredBreak !== requiredBreak) {
+    showToast(`休憩が合いません\n設定: ${requiredBreak}分 / 入力: ${enteredBreak}分`);
+    renderTimeline();
+    return;
+  }
+  renderSummary(session);
+  showScreen('screen-summary');
+}
 function changeAdminPw() {
   const newPw = document.getElementById('admin-pw-new').value.trim();
   const conf  = document.getElementById('admin-pw-confirm').value.trim();
@@ -661,68 +703,24 @@ function setupEvents() {
   document.getElementById('btn-goto-admin').addEventListener('click', openAdminPwModal);
 
   // ── Admin password modal ──
-  document.getElementById('modal-admin-pw-backdrop').addEventListener('click', closeAdminPwModal);
-  document.getElementById('modal-admin-pw-close').addEventListener('click', closeAdminPwModal);
-  document.getElementById('admin-pw-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('btn-admin-pw-submit').click();
+  const apwBd = document.getElementById('modal-admin-pw-backdrop');
+  const apwCl = document.getElementById('modal-admin-pw-close');
+  const apwIn = document.getElementById('admin-pw-input');
+  const apwSb = document.getElementById('btn-admin-pw-submit');
+  if (apwBd) apwBd.addEventListener('click', closeAdminPwModal);
+  if (apwCl) apwCl.addEventListener('click', closeAdminPwModal);
+  if (apwIn) apwIn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && apwSb) apwSb.click();
   });
-  document.getElementById('btn-admin-pw-submit').addEventListener('click', () => {
-    if (document.getElementById('admin-pw-input').value === getAdminPw()) {
+  if (apwSb) apwSb.addEventListener('click', () => {
+    if (apwIn.value === getAdminPw()) {
       closeAdminPwModal();
       renderEmployeeList();
       showScreen('screen-admin');
     } else {
       showToast('パスワードが違います');
-      document.getElementById('admin-pw-input').value = '';
+      apwIn.value = '';
     }
-  });
-
-  // ── Main / Timeline ──
-  document.getElementById('btn-back-to-login').addEventListener('click', () => {
-    const wasEditing = editingSessionId !== null;
-    const savedDate  = wasEditing ? session.date : null;
-    const msg = wasEditing
-      ? '修正を中断して履歴画面に戻りますか？（変更は破棄されます）'
-      : '作業入力を中断してログイン画面に戻りますか？（入力内容は破棄されます）';
-    if (!confirm(msg)) return;
-    session = null;
-    editingSessionId = null;
-    persist();
-    stopClock();
-    if (wasEditing) {
-      historyViewDate = savedDate;
-      renderHistoryDay(savedDate);
-      showScreen('screen-history');
-    } else {
-      showScreen('screen-login');
-    }
-  });
-
-  document.getElementById('btn-clr-all').addEventListener('click', () => {
-    if (!confirm('全スロットをクリアしますか？')) return;
-    session.entries = [];
-    persist();
-    renderTimeline();
-  });
-
-  document.getElementById('btn-finish').addEventListener('click', () => {
-    if (!session) return;
-    // 最後に入力されたスロットから勤務終了まで、その作業で自動補完
-    const slots      = buildSlots(session);
-    const lastFilled = [...slots].reverse().find(s => s.categoryId);
-    if (lastFilled && lastFilled.slotEnd < session.endTs) {
-      assignSlot(lastFilled.slotEnd, session.endTs, lastFilled.categoryId);
-    }
-    // 休憩時間の整合チェック
-    const enteredBreak  = summarise(buildSlots(session))['16'] || 0;
-    const requiredBreak = session.breakMins || 0;
-    if (enteredBreak !== requiredBreak) {
-      showToast(`休憩が合いません\n設定: ${requiredBreak}分 / 入力: ${enteredBreak}分`);
-      renderTimeline();
-      return;
-    }
-    renderSummary(session);
-    showScreen('screen-summary');
   });
 
   // ── Summary ──

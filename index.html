@@ -102,7 +102,7 @@
   <!-- ==================== MAIN (タイムライン) ==================== -->
   <div id="screen-main" class="screen">
     <div class="main-header">
-      <button class="btn-main-back" id="btn-back-to-login">← 戻る</button>
+      <button class="btn-main-back" onclick="backToLogin()">← 戻る</button>
       <div class="header-center">
         <span id="h-name" class="h-name"></span>
         <span id="h-code" class="h-code"></span>
@@ -130,8 +130,8 @@
     <div class="tl-scroll" id="tl-scroll"></div>
 
     <div class="main-footer">
-      <button class="btn-clr-all-sm" id="btn-clr-all">🗑 全クリア</button>
-      <button class="btn-finish" id="btn-finish" disabled>集計する →</button>
+      <button class="btn-clr-all-sm" onclick="clearAllSlots()">🗑 全クリア</button>
+      <button class="btn-finish" id="btn-finish" onclick="finishShift()" disabled>集計する →</button>
     </div>
   </div>
 
