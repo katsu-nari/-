@@ -738,9 +738,16 @@ function setupEvents() {
     if (!file) { showToast('CSVファイルを選択してください'); return; }
     const reader = new FileReader();
     reader.onload = function(e) {
+      const buf = new Uint8Array(e.target.result);
+      // UTF-8 BOM (EF BB BF) があればUTF-8、なければExcelのShift-JISとして読む
+      const isUtf8 = buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF;
       let text;
-      try { text = new TextDecoder('shift-jis').decode(new Uint8Array(e.target.result)); }
-      catch { text = new TextDecoder('utf-8').decode(new Uint8Array(e.target.result)); }
+      if (isUtf8) {
+        text = new TextDecoder('utf-8').decode(buf);
+      } else {
+        try { text = new TextDecoder('shift_jis').decode(buf); }
+        catch { text = new TextDecoder('utf-8').decode(buf); }
+      }
       text = text.replace(/^﻿/, ''); // BOM除去
       const lines = text.split(/\r?\n/).filter(l => l.trim());
       let count = 0;
