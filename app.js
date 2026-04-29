@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '1.7.0';
+const VERSION = '1.7.1';
 
 /* ============================================================
    CATEGORIES
@@ -101,6 +101,13 @@ function finishShift() {
   }
   renderSummary(session);
   showScreen('screen-summary');
+}
+function clearAllEmployees() {
+  if (!confirm('全社員を削除しますか？\n（勤務記録は残ります）')) return;
+  employees = {};
+  persist();
+  renderEmployeeList();
+  showToast('全社員を削除しました');
 }
 function changeAdminPw() {
   const newPw = document.getElementById('admin-pw-new').value.trim();
@@ -780,14 +787,10 @@ function setupEvents() {
     const reader = new FileReader();
     reader.onload = function(e) {
       const buf = new Uint8Array(e.target.result);
-      // UTF-8 BOM (EF BB BF) があればUTF-8、なければExcelのShift-JISとして読む
-      const isUtf8 = buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF;
-      let text;
-      if (isUtf8) {
-        text = new TextDecoder('utf-8').decode(buf);
-      } else {
-        try { text = new TextDecoder('shift_jis').decode(buf); }
-        catch { text = new TextDecoder('utf-8').decode(buf); }
+      // UTF-8 で読んで置換文字(U+FFFD)が含まれる場合は Shift-JIS として再試行
+      let text = new TextDecoder('utf-8').decode(buf);
+      if (text.includes('�')) {
+        try { text = new TextDecoder('shift_jis').decode(buf); } catch { /* keep utf-8 */ }
       }
       text = text.replace(/^﻿/, ''); // BOM除去
       const lines = text.split(/\r?\n/).filter(l => l.trim());

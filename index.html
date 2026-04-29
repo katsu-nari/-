@@ -202,7 +202,10 @@
           <button class="btn-outline" onclick="downloadEmpTemplate()">テンプレDL</button>
         </div>
       </div>
-      <div class="admin-list-title">登録済み社員</div>
+      <div class="admin-list-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>登録済み社員</span>
+        <button class="btn-danger-sm" onclick="clearAllEmployees()">全削除</button>
+      </div>
       <div id="employee-list" class="employee-list"></div>
     </div>
   </div>

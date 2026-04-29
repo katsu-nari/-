@@ -477,6 +477,7 @@ html, body {
 .admin-btn-row .btn-outline { flex: 1; }
 
 .admin-list-title { font-size: 13px; font-weight: 700; color: var(--muted); padding: 0 4px 8px; text-transform: uppercase; letter-spacing: .05em; }
+.btn-danger-sm { height: 28px; padding: 0 10px; background: var(--danger); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; }
 .employee-list { display: flex; flex-direction: column; gap: 8px; }
 .emp-row {
   display: flex; align-items: center; gap: 12px;
