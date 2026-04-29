@@ -672,6 +672,14 @@ function setupEvents() {
     if (lastFilled && lastFilled.slotEnd < session.endTs) {
       assignSlot(lastFilled.slotEnd, session.endTs, lastFilled.categoryId);
     }
+    // 休憩時間の整合チェック
+    const enteredBreak  = summarise(buildSlots(session))['16'] || 0;
+    const requiredBreak = session.breakMins || 0;
+    if (enteredBreak !== requiredBreak) {
+      showToast(`休憩時間が一致しません（作業入力: ${enteredBreak}分 / 設定: ${requiredBreak}分）`);
+      renderTimeline();
+      return;
+    }
     renderSummary(session);
     showScreen('screen-summary');
   });
