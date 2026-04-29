@@ -157,6 +157,19 @@
         </div>
         <button class="btn-primary" id="btn-add-emp">登録する</button>
       </div>
+      <div class="admin-card">
+        <h3>CSVで一括登録</h3>
+        <p class="admin-note">1列目:社員コード、2列目:氏名（Shift-JIS / UTF-8対応）</p>
+        <div class="admin-csv-row">
+          <label class="btn-file-label" for="admin-csv-file">📂 ファイル選択</label>
+          <input type="file" id="admin-csv-file" accept=".csv,.txt">
+          <span id="admin-csv-name" class="admin-csv-filename">未選択</span>
+        </div>
+        <div class="admin-btn-row">
+          <button class="btn-primary" id="btn-import-csv">インポート</button>
+          <button class="btn-outline" onclick="downloadEmpTemplate()">テンプレDL</button>
+        </div>
+      </div>
       <div class="admin-list-title">登録済み社員</div>
       <div id="employee-list" class="employee-list"></div>
     </div>

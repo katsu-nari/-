@@ -472,7 +472,9 @@ function renderHistoryDay(date) {
     list.innerHTML = '<div class="empty-state">記録がありません</div>';
     return;
   }
-  list.innerHTML = daySess.map(sess => {
+  const sorted = daySess.slice().sort((a, b) =>
+    String(a.employeeCode).localeCompare(String(b.employeeCode), undefined, { numeric: true }));
+  list.innerHTML = sorted.map(sess => {
     const chips = Object.entries(summarise(buildSlots(sess)))
       .sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id, mins]) => {
         const cat = CAT[id];
@@ -484,12 +486,26 @@ function renderHistoryDay(date) {
           <span class="hist-name">${sess.workerName}</span>
           <span class="hist-code">${sess.employeeCode}</span>
         </div>
-        <button class="btn-hist-edit" onclick="editHistory('${sess.id}')">✏ 修正</button>
+        <div class="hist-actions">
+          <button class="btn-hist-edit" onclick="editHistory('${sess.id}')">✏ 修正</button>
+          <button class="btn-hist-del"  onclick="deleteHistory('${sess.id}')">🗑</button>
+        </div>
       </div>
       <div class="hist-range">${hhmm(sess.startTs)} 〜 ${hhmm(sess.endTs)}（${fmtDur(sess.endTs - sess.startTs)}）</div>
       <div class="hist-chips">${chips}</div>
     </div>`;
   }).join('');
+}
+
+function deleteHistory(id) {
+  if (!confirm('この記録を削除しますか？')) return;
+  const idx = sessions.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  sessions.splice(idx, 1);
+  persist();
+  const remaining = (histByDate()[historyViewDate] || []).length;
+  if (remaining === 0) { historyViewDate = null; renderHistoryList(); }
+  else                 { renderHistoryDay(historyViewDate); }
 }
 
 /* ============================================================
@@ -523,19 +539,34 @@ function renderEmployeeList() {
    CSV EXPORT
    ============================================================ */
 function exportCSV() {
-  if (sessions.length === 0) { alert('記録がありません'); return; }
-  const rows = [['日付','社員コード','氏名','開始','終了','作業内容','時間（分）']];
-  for (const sess of sessions) {
+  const target   = historyViewDate ? sessions.filter(s => s.date === historyViewDate) : sessions;
+  if (target.length === 0) { alert('記録がありません'); return; }
+  const rows = [['日付','社員コード','氏名','開始','終了','作業内容','時間（h）']];
+  for (const sess of target) {
     const summary = summarise(buildSlots(sess));
     for (const [id, mins] of Object.entries(summary)) {
       const cat = CAT[id];
-      rows.push([sess.date, sess.employeeCode, sess.workerName, hhmm(sess.startTs), hhmm(sess.endTs), cat ? cat.label.replace('\n',' ') : id, mins]);
+      rows.push([
+        sess.date, sess.employeeCode, sess.workerName,
+        hhmm(sess.startTs), hhmm(sess.endTs),
+        cat ? cat.label.replace('\n',' ') : id,
+        (mins / 60).toFixed(2),
+      ]);
     }
   }
+  const filename = historyViewDate ? `作業記録_${historyViewDate}.csv` : `作業記録_${new Date().toISOString().slice(0,10)}.csv`;
   const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
-  Object.assign(document.createElement('a'), { href: url, download: `作業記録_${new Date().toISOString().slice(0,10)}.csv` }).click();
+  Object.assign(document.createElement('a'), { href: url, download: filename }).click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadEmpTemplate() {
+  const csv  = '﻿社員コード,氏名\r\n1001,田中 太郎\r\n1002,鈴木 花子\r\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  Object.assign(document.createElement('a'), { href: url, download: '社員登録テンプレート.csv' }).click();
   URL.revokeObjectURL(url);
 }
 
@@ -696,6 +727,37 @@ function setupEvents() {
     document.getElementById('admin-name').value = '';
     renderEmployeeList();
     showToast(`${code}：${name} を登録しました`);
+  });
+
+  // ── Admin CSV import ──
+  document.getElementById('admin-csv-file').addEventListener('change', function() {
+    document.getElementById('admin-csv-name').textContent = this.files[0] ? this.files[0].name : '未選択';
+  });
+  document.getElementById('btn-import-csv').addEventListener('click', () => {
+    const file = document.getElementById('admin-csv-file').files[0];
+    if (!file) { showToast('CSVファイルを選択してください'); return; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      let text;
+      try { text = new TextDecoder('shift-jis').decode(new Uint8Array(e.target.result)); }
+      catch { text = new TextDecoder('utf-8').decode(new Uint8Array(e.target.result)); }
+      text = text.replace(/^﻿/, ''); // BOM除去
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      let count = 0;
+      for (const line of lines) {
+        const parts = line.split(',').map(p => p.replace(/^"(.*)"$/, '$1').trim());
+        if (parts.length < 2) continue;
+        const code = parts[0], name = parts[1];
+        if (!code || !name || isNaN(Number(code))) continue; // 非数値はヘッダー行として無視
+        employees[code] = name;
+        count++;
+      }
+      persist();
+      renderEmployeeList();
+      showToast(`${count}名を登録しました`);
+      document.getElementById('admin-csv-file').value = '';
+    };
+    reader.readAsArrayBuffer(file);
   });
 
   // ── Modal ──
