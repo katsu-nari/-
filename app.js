@@ -541,8 +541,13 @@ function renderEmployeeList() {
 function exportCSV() {
   const target   = historyViewDate ? sessions.filter(s => s.date === historyViewDate) : sessions;
   if (target.length === 0) { alert('記録がありません'); return; }
+  const sorted = target.slice().sort((a, b) => {
+    const codeCmp = String(a.employeeCode).localeCompare(String(b.employeeCode), undefined, { numeric: true });
+    if (codeCmp !== 0) return codeCmp;
+    return a.date.localeCompare(b.date);
+  });
   const rows = [['日付','社員コード','氏名','開始','終了','作業内容','時間（h）']];
-  for (const sess of target) {
+  for (const sess of sorted) {
     const summary = summarise(buildSlots(sess));
     for (const [id, mins] of Object.entries(summary)) {
       const cat = CAT[id];
