@@ -45,6 +45,21 @@ let currentCode = '';
 let pendingSlot = null; // { slotStart, slotEnd }
 
 /* ============================================================
+   ADMIN PASSWORD
+   ============================================================ */
+const ADMIN_PW_KEY = 'lr_admin_pw';
+function getAdminPw() { return localStorage.getItem(ADMIN_PW_KEY) || '0000'; }
+
+function openAdminPwModal() {
+  document.getElementById('admin-pw-input').value = '';
+  document.getElementById('modal-admin-pw').style.display = 'flex';
+  setTimeout(() => document.getElementById('admin-pw-input').focus(), 150);
+}
+function closeAdminPwModal() {
+  document.getElementById('modal-admin-pw').style.display = 'none';
+}
+
+/* ============================================================
    PERSISTENCE
    ============================================================ */
 function persist() {
@@ -631,9 +646,35 @@ function setupEvents() {
     showScreen('screen-history');
   });
 
-  document.getElementById('btn-goto-admin').addEventListener('click', () => {
-    renderEmployeeList();
-    showScreen('screen-admin');
+  document.getElementById('btn-goto-admin').addEventListener('click', openAdminPwModal);
+
+  // ── Admin password modal ──
+  document.getElementById('modal-admin-pw-backdrop').addEventListener('click', closeAdminPwModal);
+  document.getElementById('modal-admin-pw-close').addEventListener('click', closeAdminPwModal);
+  document.getElementById('admin-pw-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-admin-pw-submit').click();
+  });
+  document.getElementById('btn-admin-pw-submit').addEventListener('click', () => {
+    if (document.getElementById('admin-pw-input').value === getAdminPw()) {
+      closeAdminPwModal();
+      renderEmployeeList();
+      showScreen('screen-admin');
+    } else {
+      showToast('パスワードが違います');
+      document.getElementById('admin-pw-input').value = '';
+    }
+  });
+
+  // ── Change admin password ──
+  document.getElementById('btn-change-admin-pw').addEventListener('click', () => {
+    const newPw  = document.getElementById('admin-pw-new').value.trim();
+    const conf   = document.getElementById('admin-pw-confirm').value.trim();
+    if (!newPw)        { showToast('パスワードを入力してください'); return; }
+    if (newPw !== conf) { showToast('確認パスワードが一致しません'); return; }
+    localStorage.setItem(ADMIN_PW_KEY, newPw);
+    document.getElementById('admin-pw-new').value = '';
+    document.getElementById('admin-pw-confirm').value = '';
+    showToast('パスワードを変更しました');
   });
 
   // ── Main / Timeline ──
